@@ -1,12 +1,6 @@
 
 import React from 'react';
-
-interface Winner {
-  id: number;
-  name: string;
-  date: string;
-  event: string;
-}
+import type { Winner } from '@/types/lottery';
 
 interface WinnersPageProps {
   allWinners: Winner[];
@@ -32,18 +26,44 @@ const WinnersPage: React.FC<WinnersPageProps> = ({ allWinners }) => {
                       {index < 3 ? (index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉') : '🎖️'}
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold text-yellow-300">{winner.name}</h3>
-                      <p className="text-cyan-200">{winner.event}</p>
+                      <h3 className="text-2xl font-bold text-yellow-300">{winner.customer?.name}</h3>
+                      <p className="text-cyan-200">{winner.event?.name}</p>
+                      <p className="text-green-300 font-semibold">{winner.prize_description}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-semibold">{winner.date}</p>
-                    <p className="text-sm text-cyan-200">Winner #{winner.id}</p>
+                    <p className="text-lg font-semibold">{new Date(winner.won_at).toLocaleDateString()}</p>
+                    <p className="text-sm text-cyan-200">Winner #{index + 1}</p>
                   </div>
                 </div>
               ))}
+              
+              {allWinners.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-xl text-cyan-200">No winners yet. Be the first!</p>
+                </div>
+              )}
             </div>
           </div>
+
+          {allWinners.length > 0 && (
+            <div className="bg-gradient-to-r from-green-400 to-blue-500 rounded-3xl p-8 mt-8 shadow-2xl">
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  🎊 Winners can inquire to admin or admin will reach out 🎊
+                </h3>
+                <p className="text-yellow-300 text-xl font-bold">
+                  📞 Contact: +91 7005498122
+                </p>
+                <button
+                  onClick={() => window.open(`https://wa.me/917005498122?text=${encodeURIComponent('Hi! I am a lottery winner and would like to claim my prize.')}`)}
+                  className="mt-4 bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl text-lg font-bold transition-all duration-300 transform hover:scale-105"
+                >
+                  Contact via WhatsApp
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

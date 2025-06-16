@@ -9,7 +9,182 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+        }
+        Relationships: []
+      }
+      draws: {
+        Row: {
+          conducted_at: string
+          event_id: string
+          id: string
+          total_participants: number
+        }
+        Insert: {
+          conducted_at?: string
+          event_id: string
+          id?: string
+          total_participants: number
+        }
+        Update: {
+          conducted_at?: string
+          event_id?: string
+          id?: string
+          total_participants?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draws_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          active: boolean
+          created_at: string
+          event_date: string
+          id: string
+          name: string
+          winners_count: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          event_date: string
+          id?: string
+          name: string
+          winners_count?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          event_date?: string
+          id?: string
+          name?: string
+          winners_count?: number
+        }
+        Relationships: []
+      }
+      external_links: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      footer_content: {
+        Row: {
+          description: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          description: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          description?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          id: string
+          last_seen: string
+          session_id: string
+        }
+        Insert: {
+          id?: string
+          last_seen?: string
+          session_id: string
+        }
+        Update: {
+          id?: string
+          last_seen?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
+      winners: {
+        Row: {
+          customer_id: string
+          event_id: string
+          id: string
+          prize_description: string
+          won_at: string
+        }
+        Insert: {
+          customer_id: string
+          event_id: string
+          id?: string
+          prize_description: string
+          won_at?: string
+        }
+        Update: {
+          customer_id?: string
+          event_id?: string
+          id?: string
+          prize_description?: string
+          won_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winners_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winners_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

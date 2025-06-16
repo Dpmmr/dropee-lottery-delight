@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import LotteryHeader from '../components/LotteryHeader';
 import HomePage from '../components/HomePage';
 import ContactPage from '../components/ContactPage';
@@ -7,40 +9,82 @@ import WinnersPage from '../components/WinnersPage';
 import AdminLoginPage from '../components/AdminLoginPage';
 import AdminPage from '../components/AdminPage';
 import LotteryFooter from '../components/LotteryFooter';
+import LiveUserMonitor from '../components/LiveUserMonitor';
+import CrystalBallAnimation from '../components/CrystalBallAnimation';
+import WinnerReveal from '../components/WinnerReveal';
+import type { Customer, Event, Winner, Draw, ExternalLink } from '@/types/lottery';
 
 const Index = () => {
   const [currentPage, setCurrentPage] = useState('home');
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [customers, setCustomers] = useState([
-    { id: 1, name: 'John Doe', phone: '1234567890', email: 'john@example.com' },
-    { id: 2, name: 'Jane Smith', phone: '0987654321', email: 'jane@example.com' },
-    { id: 3, name: 'Mike Johnson', phone: '1112223333', email: 'mike@example.com' },
-    { id: 4, name: 'Sarah Williams', phone: '4445556666', email: 'sarah@example.com' },
-    { id: 5, name: 'David Brown', phone: '7778889999', email: 'david@example.com' },
-  ]);
-  const [allWinners, setAllWinners] = useState([
-    { id: 1, name: 'Alice Cooper', date: '2024-06-10', event: 'Weekly Draw #1' },
-    { id: 2, name: 'Bob Dylan', date: '2024-06-10', event: 'Weekly Draw #1' },
-    { id: 3, name: 'Charlie Brown', date: '2024-06-10', event: 'Weekly Draw #1' },
-    { id: 4, name: 'Diana Prince', date: '2024-06-03', event: 'Special Event' },
-    { id: 5, name: 'Elvis Presley', date: '2024-06-03', event: 'Special Event' },
-  ]);
-  const [events, setEvents] = useState([
-    { id: 1, name: 'Weekly Draw', winners: 3, date: '2024-06-17', active: true },
-    { id: 2, name: 'Special Event', winners: 2, date: '2024-06-24', active: false },
-  ]);
-  const [externalLinks, setExternalLinks] = useState([
-    { id: 1, name: 'DROPEE Main Site', url: 'https://dropee.com' },
-    { id: 2, name: 'DROPEE Store', url: 'https://store.dropee.com' },
-  ]);
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
-  const [newEvent, setNewEvent] = useState({ name: '', winners: 3, date: '' });
-  const [newLink, setNewLink] = useState({ name: '', url: '' });
   const [isDrawing, setIsDrawing] = useState(false);
-  const [currentWinners, setCurrentWinners] = useState([]);
-  const [drawAnimation, setDrawAnimation] = useState(false);
+  const [showCrystalBalls, setShowCrystalBalls] = useState(false);
+  const [showWinnerReveal, setShowWinnerReveal] = useState(false);
+  const [currentWinners, setCurrentWinners] = useState<string[]>([]);
+  const [currentPrize, setCurrentPrize] = useState('');
+
+  const queryClient = useQueryClient();
+
+  // Fetch data from Supabase
+  const { data: customers = [] } = useQuery({
+    queryKey: ['customers'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('customers').select('*');
+      if (error) throw error;
+      return data as Customer[];
+    }
+  });
+
+  const { data: events = [] } = useQuery({
+    queryKey: ['events'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('events').select('*');
+      if (error) throw error;
+      return data as Event[];
+    }
+  });
+
+  const { data: winners = [] } = useQuery({
+    queryKey: ['winners'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('winners')
+        .select(`
+          *,
+          customer:customers(*),
+          event:events(*)
+        `)
+        .order('won_at', { ascending: false });
+      if (error) throw error;
+      return data as Winner[];
+    }
+  });
+
+  const { data: draws = [] } = useQuery({
+    queryKey: ['draws'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('draws')
+        .select(`
+          *,
+          event:events(*)
+        `)
+        .order('conducted_at', { ascending: false });
+      if (error) throw error;
+      return data as Draw[];
+    }
+  });
+
+  const { data: externalLinks = [] } = useQuery({
+    queryKey: ['external_links'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('external_links').select('*');
+      if (error) throw error;
+      return data as ExternalLink[];
+    }
+  });
 
   const adminLogin = () => {
     if (adminPassword === '000000') {
@@ -52,60 +96,51 @@ const Index = () => {
     }
   };
 
-  const addCustomer = () => {
-    if (newCustomer.name && newCustomer.phone && newCustomer.email) {
-      setCustomers([...customers, { 
-        id: Date.now(), 
-        ...newCustomer 
-      }]);
-      setNewCustomer({ name: '', phone: '', email: '' });
-    }
-  };
-
-  const addEvent = () => {
-    if (newEvent.name && newEvent.winners && newEvent.date) {
-      setEvents([...events, { 
-        id: Date.now(), 
-        ...newEvent,
-        active: false
-      }]);
-      setNewEvent({ name: '', winners: 3, date: '' });
-    }
-  };
-
-  const addLink = () => {
-    if (newLink.name && newLink.url) {
-      setExternalLinks([...externalLinks, { 
-        id: Date.now(), 
-        ...newLink 
-      }]);
-      setNewLink({ name: '', url: '' });
-    }
-  };
-
-  const conductDraw = (eventId: number) => {
+  const conductDraw = async (eventId: string, prizeDescription: string) => {
     const event = events.find(e => e.id === eventId);
     if (!event || customers.length === 0) return;
 
     setIsDrawing(true);
-    setDrawAnimation(true);
+    setShowCrystalBalls(true);
+    setCurrentPrize(prizeDescription);
 
-    setTimeout(() => {
-      const shuffled = [...customers].sort(() => 0.5 - Math.random());
-      const winners = shuffled.slice(0, event.winners);
-      
-      const newWinners = winners.map(winner => ({
-        id: Date.now() + Math.random(),
-        name: winner.name,
-        date: new Date().toISOString().split('T')[0],
-        event: event.name
-      }));
+    // Record the draw
+    await supabase.from('draws').insert({
+      event_id: eventId,
+      total_participants: customers.length
+    });
+  };
 
-      setCurrentWinners(newWinners);
-      setAllWinners([...allWinners, ...newWinners]);
-      setIsDrawing(false);
-      setDrawAnimation(false);
-    }, 3000);
+  const handleAnimationComplete = async (winnerNames: string[]) => {
+    setShowCrystalBalls(false);
+    setCurrentWinners(winnerNames);
+    setShowWinnerReveal(true);
+
+    // Save winners to database
+    const event = events.find(e => e.active);
+    if (event) {
+      for (const winnerName of winnerNames) {
+        const customer = customers.find(c => c.name === winnerName);
+        if (customer) {
+          await supabase.from('winners').insert({
+            customer_id: customer.id,
+            event_id: event.id,
+            prize_description: currentPrize
+          });
+        }
+      }
+    }
+
+    // Refresh data
+    queryClient.invalidateQueries({ queryKey: ['winners'] });
+    queryClient.invalidateQueries({ queryKey: ['draws'] });
+  };
+
+  const closeWinnerReveal = () => {
+    setShowWinnerReveal(false);
+    setIsDrawing(false);
+    setCurrentWinners([]);
+    setCurrentPrize('');
   };
 
   const renderCurrentPage = () => {
@@ -113,24 +148,15 @@ const Index = () => {
       return (
         <AdminPage
           customers={customers}
-          setCustomers={setCustomers}
           events={events}
-          setEvents={setEvents}
+          winners={winners}
+          draws={draws}
           externalLinks={externalLinks}
-          setExternalLinks={setExternalLinks}
-          newCustomer={newCustomer}
-          setNewCustomer={setNewCustomer}
-          newEvent={newEvent}
-          setNewEvent={setNewEvent}
-          newLink={newLink}
-          setNewLink={setNewLink}
-          addCustomer={addCustomer}
-          addEvent={addEvent}
-          addLink={addLink}
           conductDraw={conductDraw}
           isDrawing={isDrawing}
           setIsAdmin={setIsAdmin}
           setCurrentPage={setCurrentPage}
+          queryClient={queryClient}
         />
       );
     }
@@ -139,17 +165,17 @@ const Index = () => {
       case 'home':
         return (
           <HomePage
-            currentWinners={currentWinners}
+            currentWinners={winners.slice(0, 3)}
             customers={customers}
-            allWinners={allWinners}
+            allWinners={winners}
             events={events}
-            drawAnimation={drawAnimation}
+            draws={draws}
           />
         );
       case 'contact':
         return <ContactPage externalLinks={externalLinks} />;
       case 'winners':
-        return <WinnersPage allWinners={allWinners} />;
+        return <WinnersPage allWinners={winners} />;
       case 'admin-login':
         return (
           <AdminLoginPage
@@ -163,11 +189,11 @@ const Index = () => {
       default:
         return (
           <HomePage
-            currentWinners={currentWinners}
+            currentWinners={winners.slice(0, 3)}
             customers={customers}
-            allWinners={allWinners}
+            allWinners={winners}
             events={events}
-            drawAnimation={drawAnimation}
+            draws={draws}
           />
         );
     }
@@ -175,9 +201,26 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900">
+      <LiveUserMonitor />
       <LotteryHeader currentPage={currentPage} setCurrentPage={setCurrentPage} />
       {renderCurrentPage()}
       <LotteryFooter />
+      
+      {showCrystalBalls && (
+        <CrystalBallAnimation
+          winnersCount={events.find(e => e.active)?.winners_count || 3}
+          onAnimationComplete={handleAnimationComplete}
+          participants={customers.map(c => c.name)}
+        />
+      )}
+      
+      {showWinnerReveal && (
+        <WinnerReveal
+          winners={currentWinners}
+          prizeDescription={currentPrize}
+          onClose={closeWinnerReveal}
+        />
+      )}
     </div>
   );
 };

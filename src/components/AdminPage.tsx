@@ -1,71 +1,101 @@
 
-import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
-
-interface Customer {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-}
-
-interface Event {
-  id: number;
-  name: string;
-  winners: number;
-  date: string;
-  active: boolean;
-}
-
-interface ExternalLink {
-  id: number;
-  name: string;
-  url: string;
-}
+import React, { useState } from 'react';
+import { Plus, Trash2, Play, Users, Trophy, BarChart3 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useLiveMonitoring } from '@/hooks/useLiveMonitoring';
+import type { Customer, Event, Winner, Draw, ExternalLink } from '@/types/lottery';
+import { QueryClient } from '@tanstack/react-query';
 
 interface AdminPageProps {
   customers: Customer[];
-  setCustomers: (customers: Customer[]) => void;
   events: Event[];
-  setEvents: (events: Event[]) => void;
+  winners: Winner[];
+  draws: Draw[];
   externalLinks: ExternalLink[];
-  setExternalLinks: (links: ExternalLink[]) => void;
-  newCustomer: { name: string; phone: string; email: string };
-  setNewCustomer: (customer: { name: string; phone: string; email: string }) => void;
-  newEvent: { name: string; winners: number; date: string };
-  setNewEvent: (event: { name: string; winners: number; date: string }) => void;
-  newLink: { name: string; url: string };
-  setNewLink: (link: { name: string; url: string }) => void;
-  addCustomer: () => void;
-  addEvent: () => void;
-  addLink: () => void;
-  conductDraw: (eventId: number) => void;
+  conductDraw: (eventId: string, prizeDescription: string) => void;
   isDrawing: boolean;
   setIsAdmin: (isAdmin: boolean) => void;
   setCurrentPage: (page: string) => void;
+  queryClient: QueryClient;
 }
 
 const AdminPage: React.FC<AdminPageProps> = ({
   customers,
-  setCustomers,
   events,
-  setEvents,
+  winners,
+  draws,
   externalLinks,
-  setExternalLinks,
-  newCustomer,
-  setNewCustomer,
-  newEvent,
-  setNewEvent,
-  newLink,
-  setNewLink,
-  addCustomer,
-  addEvent,
-  addLink,
   conductDraw,
   isDrawing,
   setIsAdmin,
-  setCurrentPage
+  setCurrentPage,
+  queryClient
 }) => {
+  const { onlineUsers, peakUsers } = useLiveMonitoring();
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
+  const [newEvent, setNewEvent] = useState({ name: '', winners_count: 3, event_date: '', active: false });
+  const [newLink, setNewLink] = useState({ name: '', url: '' });
+  const [selectedPrize, setSelectedPrize] = useState('Free Delivery for 3 Days');
+
+  const addCustomer = async () => {
+    if (newCustomer.name && newCustomer.phone && newCustomer.email) {
+      await supabase.from('customers').insert(newCustomer);
+      setNewCustomer({ name: '', phone: '', email: '' });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    }
+  };
+
+  const deleteCustomer = async (id: string) => {
+    await supabase.from('customers').delete().eq('id', id);
+    queryClient.invalidateQueries({ queryKey: ['customers'] });
+  };
+
+  const addEvent = async () => {
+    if (newEvent.name && newEvent.winners_count && newEvent.event_date) {
+      await supabase.from('events').insert(newEvent);
+      setNewEvent({ name: '', winners_count: 3, event_date: '', active: false });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    }
+  };
+
+  const deleteEvent = async (id: string) => {
+    await supabase.from('events').delete().eq('id', id);
+    queryClient.invalidateQueries({ queryKey: ['events'] });
+  };
+
+  const toggleEventActive = async (id: string, active: boolean) => {
+    // First deactivate all events
+    await supabase.from('events').update({ active: false }).neq('id', '');
+    // Then activate the selected one if needed
+    if (active) {
+      await supabase.from('events').update({ active: true }).eq('id', id);
+    }
+    queryClient.invalidateQueries({ queryKey: ['events'] });
+  };
+
+  const addLink = async () => {
+    if (newLink.name && newLink.url) {
+      await supabase.from('external_links').insert(newLink);
+      setNewLink({ name: '', url: '' });
+      queryClient.invalidateQueries({ queryKey: ['external_links'] });
+    }
+  };
+
+  const deleteLink = async (id: string) => {
+    await supabase.from('external_links').delete().eq('id', id);
+    queryClient.invalidateQueries({ queryKey: ['external_links'] });
+  };
+
+  const prizeOptions = [
+    'Free Delivery for 3 Days',
+    'Free Delivery for 7 Days',
+    '10% Discount Next Order',
+    '20% Discount Next Order',
+    'Free Item of Choice',
+    'Cash Prize ₹500',
+    'Cash Prize ₹1000'
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900 text-white">
       <div className="container mx-auto px-4 py-8">
@@ -81,9 +111,50 @@ const AdminPage: React.FC<AdminPageProps> = ({
           </button>
         </div>
 
+        {/* Live Stats Dashboard */}
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-6">
+            <div className="flex items-center space-x-3">
+              <Users className="w-8 h-8" />
+              <div>
+                <p className="text-sm opacity-80">Live Users</p>
+                <p className="text-2xl font-bold">{onlineUsers}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-6">
+            <div className="flex items-center space-x-3">
+              <BarChart3 className="w-8 h-8" />
+              <div>
+                <p className="text-sm opacity-80">Peak Users</p>
+                <p className="text-2xl font-bold">{peakUsers}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-6">
+            <div className="flex items-center space-x-3">
+              <Trophy className="w-8 h-8" />
+              <div>
+                <p className="text-sm opacity-80">Total Draws</p>
+                <p className="text-2xl font-bold">{draws.length}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-6">
+            <div className="flex items-center space-x-3">
+              <Users className="w-8 h-8" />
+              <div>
+                <p className="text-sm opacity-80">Total Winners</p>
+                <p className="text-2xl font-bold">{winners.length}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid lg:grid-cols-2 gap-8">
+          {/* Customers Management */}
           <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-2xl font-bold mb-4">👥 Customers</h3>
+            <h3 className="text-2xl font-bold mb-4">👥 Customers ({customers.length})</h3>
             <div className="space-y-4 mb-6">
               <input
                 type="text"
@@ -122,7 +193,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                     <p className="text-sm text-cyan-200">{customer.phone}</p>
                   </div>
                   <button
-                    onClick={() => setCustomers(customers.filter(c => c.id !== customer.id))}
+                    onClick={() => deleteCustomer(customer.id)}
                     className="text-red-400 hover:text-red-300"
                   >
                     <Trash2 className="w-5 h-5" />
@@ -132,8 +203,9 @@ const AdminPage: React.FC<AdminPageProps> = ({
             </div>
           </div>
 
+          {/* Events Management */}
           <div className="bg-gradient-to-br from-cyan-600 to-blue-600 rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-2xl font-bold mb-4">🎯 Events</h3>
+            <h3 className="text-2xl font-bold mb-4">🎯 Events & Draws</h3>
             <div className="space-y-4 mb-6">
               <input
                 type="text"
@@ -145,14 +217,14 @@ const AdminPage: React.FC<AdminPageProps> = ({
               <input
                 type="number"
                 placeholder="Number of Winners"
-                value={newEvent.winners}
-                onChange={(e) => setNewEvent({...newEvent, winners: parseInt(e.target.value)})}
+                value={newEvent.winners_count}
+                onChange={(e) => setNewEvent({...newEvent, winners_count: parseInt(e.target.value)})}
                 className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400"
               />
               <input
                 type="date"
-                value={newEvent.date}
-                onChange={(e) => setNewEvent({...newEvent, date: e.target.value})}
+                value={newEvent.event_date}
+                onChange={(e) => setNewEvent({...newEvent, event_date: e.target.value})}
                 className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
               />
               <button
@@ -163,31 +235,58 @@ const AdminPage: React.FC<AdminPageProps> = ({
                 <span>Add Event</span>
               </button>
             </div>
+
+            {/* Prize Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2">Select Prize:</label>
+              <select
+                value={selectedPrize}
+                onChange={(e) => setSelectedPrize(e.target.value)}
+                className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              >
+                {prizeOptions.map(prize => (
+                  <option key={prize} value={prize} className="bg-gray-800">{prize}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="space-y-2">
               {events.map(event => (
                 <div key={event.id} className="bg-white/20 p-4 rounded-lg">
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="font-semibold">{event.name}</h4>
-                    <button
-                      onClick={() => setEvents(events.filter(e => e.id !== event.id))}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => toggleEventActive(event.id, !event.active)}
+                        className={`px-3 py-1 rounded text-sm ${event.active ? 'bg-green-500' : 'bg-gray-500'}`}
+                      >
+                        {event.active ? 'Active' : 'Inactive'}
+                      </button>
+                      <button
+                        onClick={() => deleteEvent(event.id)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-sm text-cyan-200 mb-2">{event.winners} winners • {event.date}</p>
-                  <button
-                    onClick={() => conductDraw(event.id)}
-                    disabled={isDrawing}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-500 px-4 py-2 rounded-lg transition-colors"
-                  >
-                    {isDrawing ? 'Drawing...' : 'Conduct Draw'}
-                  </button>
+                  <p className="text-sm text-cyan-200 mb-2">{event.winners_count} winners • {event.event_date}</p>
+                  {event.active && (
+                    <button
+                      onClick={() => conductDraw(event.id, selectedPrize)}
+                      disabled={isDrawing || customers.length === 0}
+                      className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:bg-gray-500 px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <Play className="w-4 h-4" />
+                      <span>{isDrawing ? 'Drawing...' : 'Start Draw'}</span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           </div>
 
+          {/* External Links Management */}
           <div className="bg-gradient-to-br from-green-600 to-teal-600 rounded-3xl p-6 shadow-2xl lg:col-span-2">
             <h3 className="text-2xl font-bold mb-4">🔗 External Links</h3>
             <div className="grid md:grid-cols-2 gap-6">
@@ -219,10 +318,10 @@ const AdminPage: React.FC<AdminPageProps> = ({
                   <div key={link.id} className="bg-white/20 p-4 rounded-lg flex justify-between items-center">
                     <div>
                       <p className="font-semibold">{link.name}</p>
-                      <p className="text-sm text-cyan-200">{link.url}</p>
+                      <p className="text-sm text-cyan-200 truncate">{link.url}</p>
                     </div>
                     <button
-                      onClick={() => setExternalLinks(externalLinks.filter(l => l.id !== link.id))}
+                      onClick={() => deleteLink(link.id)}
                       className="text-red-400 hover:text-red-300"
                     >
                       <Trash2 className="w-5 h-5" />

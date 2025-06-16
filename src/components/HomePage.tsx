@@ -1,52 +1,31 @@
 
 import React from 'react';
-
-interface Winner {
-  id: number;
-  name: string;
-  date: string;
-  event: string;
-}
-
-interface Customer {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-}
-
-interface Event {
-  id: number;
-  name: string;
-  winners: number;
-  date: string;
-  active: boolean;
-}
+import type { Winner, Customer, Event, Draw } from '@/types/lottery';
 
 interface HomePageProps {
   currentWinners: Winner[];
   customers: Customer[];
   allWinners: Winner[];
   events: Event[];
-  drawAnimation: boolean;
+  draws: Draw[];
 }
 
 const HomePage: React.FC<HomePageProps> = ({ 
   currentWinners, 
   customers, 
   allWinners, 
-  events, 
-  drawAnimation 
+  events,
+  draws
 }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900 text-white">
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-12">
           <h2 className="text-6xl font-bold mb-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent animate-pulse">
-            🎉 WEEKLY LOTTERY DRAW 🎉
+            🎉 DROPEE LOTTERY DRAW 🎉
           </h2>
           <p className="text-xl text-cyan-300 animate-bounce">
-            3 Lucky Winners Every Week!
+            Multiple Lucky Winners Every Draw!
           </p>
         </div>
 
@@ -59,15 +38,16 @@ const HomePage: React.FC<HomePageProps> = ({
                   <div className="text-6xl mb-4">
                     {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
                   </div>
-                  <h4 className="text-2xl font-bold text-yellow-300">{winner.name}</h4>
-                  <p className="text-cyan-200">{winner.date}</p>
+                  <h4 className="text-2xl font-bold text-yellow-300">{winner.customer?.name}</h4>
+                  <p className="text-cyan-200">{new Date(winner.won_at).toLocaleDateString()}</p>
+                  <p className="text-green-300 font-semibold">{winner.prize_description}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="grid md:grid-cols-2 gap-8 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
           <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-8 shadow-2xl transform hover:rotate-1 transition-all duration-300">
             <h3 className="text-3xl font-bold mb-4 text-center">🎯 How It Works</h3>
             <ul className="space-y-3 text-lg">
@@ -81,7 +61,7 @@ const HomePage: React.FC<HomePageProps> = ({
               </li>
               <li className="flex items-center space-x-3">
                 <span className="text-2xl">🏆</span>
-                <span>Win free delivery weekly!</span>
+                <span>Win amazing prizes!</span>
               </li>
             </ul>
           </div>
@@ -101,20 +81,54 @@ const HomePage: React.FC<HomePageProps> = ({
                 <span className="text-lg">Active Events:</span>
                 <span className="text-2xl font-bold text-yellow-300">{events.filter(e => e.active).length}</span>
               </div>
+              <div className="flex justify-between items-center">
+                <span className="text-lg">Total Draws:</span>
+                <span className="text-2xl font-bold text-yellow-300">{draws.length}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-600 to-teal-600 rounded-3xl p-8 shadow-2xl transform hover:rotate-1 transition-all duration-300">
+            <h3 className="text-3xl font-bold mb-4 text-center">🗓️ Draw Schedule</h3>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">📅</span>
+                <span>Weekly Draws</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">🌙</span>
+                <span>Monthly Specials</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">🎊</span>
+                <span>Festival Events</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {drawAnimation && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-            <div className="text-center">
-              <div className="text-8xl mb-8 animate-spin">🎰</div>
-              <h3 className="text-4xl font-bold text-white mb-4">Drawing Winners...</h3>
-              <div className="flex space-x-2 justify-center">
-                <div className="w-4 h-4 bg-yellow-400 rounded-full animate-bounce"></div>
-                <div className="w-4 h-4 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                <div className="w-4 h-4 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-              </div>
+        {draws.length > 0 && (
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-8 shadow-2xl">
+            <h3 className="text-3xl font-bold mb-6 text-center">📈 Recent Draw History</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-white">
+                <thead>
+                  <tr className="border-b border-white/30">
+                    <th className="text-left py-3">Event</th>
+                    <th className="text-center py-3">Participants</th>
+                    <th className="text-center py-3">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {draws.slice(0, 5).map((draw) => (
+                    <tr key={draw.id} className="border-b border-white/20">
+                      <td className="py-3">{draw.event?.name}</td>
+                      <td className="text-center py-3">{draw.total_participants}</td>
+                      <td className="text-center py-3">{new Date(draw.conducted_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
