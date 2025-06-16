@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { UserSession } from '@/types/lottery';
 
@@ -7,37 +7,47 @@ export const useLiveMonitoring = () => {
   const [onlineUsers, setOnlineUsers] = useState(0);
   const [peakUsers, setPeakUsers] = useState(0);
   const [sessionId] = useState(() => crypto.randomUUID());
+  const channelRef = useRef<any>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Update user session
     const updateSession = async () => {
-      await supabase
-        .from('user_sessions')
-        .upsert({ 
-          session_id: sessionId, 
-          last_seen: new Date().toISOString() 
-        });
+      try {
+        await supabase
+          .from('user_sessions')
+          .upsert({ 
+            session_id: sessionId, 
+            last_seen: new Date().toISOString() 
+          });
+      } catch (error) {
+        console.log('Session update error:', error);
+      }
     };
 
     // Clean old sessions and count active ones
     const countActiveSessions = async () => {
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-      
-      // Remove old sessions
-      await supabase
-        .from('user_sessions')
-        .delete()
-        .lt('last_seen', fiveMinutesAgo);
+      try {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        
+        // Remove old sessions
+        await supabase
+          .from('user_sessions')
+          .delete()
+          .lt('last_seen', fiveMinutesAgo);
 
-      // Count active sessions
-      const { data } = await supabase
-        .from('user_sessions')
-        .select('*')
-        .gte('last_seen', fiveMinutesAgo);
+        // Count active sessions
+        const { data } = await supabase
+          .from('user_sessions')
+          .select('*')
+          .gte('last_seen', fiveMinutesAgo);
 
-      const activeCount = data?.length || 0;
-      setOnlineUsers(activeCount);
-      setPeakUsers(prev => Math.max(prev, activeCount));
+        const activeCount = data?.length || 0;
+        setOnlineUsers(activeCount);
+        setPeakUsers(prev => Math.max(prev, activeCount));
+      } catch (error) {
+        console.log('Count sessions error:', error);
+      }
     };
 
     // Initial setup
@@ -45,23 +55,31 @@ export const useLiveMonitoring = () => {
     countActiveSessions();
 
     // Update every 30 seconds
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       updateSession();
       countActiveSessions();
     }, 30000);
 
-    // Listen to realtime changes
-    const channel = supabase
-      .channel('user-sessions')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'user_sessions' },
-        () => countActiveSessions()
-      )
-      .subscribe();
+    // Listen to realtime changes - create channel only once
+    if (!channelRef.current) {
+      channelRef.current = supabase
+        .channel('user-sessions-' + sessionId)
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'user_sessions' },
+          () => countActiveSessions()
+        );
+      
+      channelRef.current.subscribe();
+    }
 
     return () => {
-      clearInterval(interval);
-      supabase.removeChannel(channel);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [sessionId]);
 

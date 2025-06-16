@@ -1,8 +1,8 @@
-
 import React, { useState } from 'react';
-import { Plus, Trash2, Play, Users, Trophy, BarChart3 } from 'lucide-react';
+import { Plus, Trash2, Play, Users, Trophy, BarChart3, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLiveMonitoring } from '@/hooks/useLiveMonitoring';
+import DrawCountdown from './DrawCountdown';
 import type { Customer, Event, Winner, Draw, ExternalLink } from '@/types/lottery';
 import { QueryClient } from '@tanstack/react-query';
 
@@ -36,6 +36,9 @@ const AdminPage: React.FC<AdminPageProps> = ({
   const [newEvent, setNewEvent] = useState({ name: '', winners_count: 3, event_date: '', active: false });
   const [newLink, setNewLink] = useState({ name: '', url: '' });
   const [selectedPrize, setSelectedPrize] = useState('Free Delivery for 3 Days');
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [countdownDuration, setCountdownDuration] = useState(10);
+  const [pendingDrawData, setPendingDrawData] = useState<{eventId: string, prize: string} | null>(null);
 
   const addCustomer = async () => {
     if (newCustomer.name && newCustomer.phone && newCustomer.email) {
@@ -86,6 +89,24 @@ const AdminPage: React.FC<AdminPageProps> = ({
     queryClient.invalidateQueries({ queryKey: ['external_links'] });
   };
 
+  const startCountdownDraw = (eventId: string, prizeDescription: string) => {
+    setPendingDrawData({ eventId, prize: prizeDescription });
+    setShowCountdown(true);
+  };
+
+  const handleCountdownComplete = () => {
+    setShowCountdown(false);
+    if (pendingDrawData) {
+      conductDraw(pendingDrawData.eventId, pendingDrawData.prize);
+      setPendingDrawData(null);
+    }
+  };
+
+  const handleCountdownCancel = () => {
+    setShowCountdown(false);
+    setPendingDrawData(null);
+  };
+
   const prizeOptions = [
     'Free Delivery for 3 Days',
     'Free Delivery for 7 Days',
@@ -98,105 +119,107 @@ const AdminPage: React.FC<AdminPageProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900 text-white">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+      <div className="container mx-auto px-2 md:px-4 py-4 md:py-8">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6 md:mb-8 space-y-4 md:space-y-0">
+          <h2 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
             ⚙️ Admin Panel
           </h2>
           <button
             onClick={() => {setIsAdmin(false); setCurrentPage('home');}}
-            className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition-colors"
+            className="bg-red-500 hover:bg-red-600 px-3 md:px-4 py-2 rounded-lg transition-colors text-sm md:text-base"
           >
             Logout
           </button>
         </div>
 
         {/* Live Stats Dashboard */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-6">
-            <div className="flex items-center space-x-3">
-              <Users className="w-8 h-8" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-6 md:mb-8">
+          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-3 md:p-6">
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <Users className="w-4 h-4 md:w-8 md:h-8" />
               <div>
-                <p className="text-sm opacity-80">Live Users</p>
-                <p className="text-2xl font-bold">{onlineUsers}</p>
+                <p className="text-xs md:text-sm opacity-80">Live</p>
+                <p className="text-lg md:text-2xl font-bold">{onlineUsers}</p>
               </div>
             </div>
           </div>
-          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-6">
-            <div className="flex items-center space-x-3">
-              <BarChart3 className="w-8 h-8" />
+          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-3 md:p-6">
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <BarChart3 className="w-4 h-4 md:w-8 md:h-8" />
               <div>
-                <p className="text-sm opacity-80">Peak Users</p>
-                <p className="text-2xl font-bold">{peakUsers}</p>
+                <p className="text-xs md:text-sm opacity-80">Peak</p>
+                <p className="text-lg md:text-2xl font-bold">{peakUsers}</p>
               </div>
             </div>
           </div>
-          <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-6">
-            <div className="flex items-center space-x-3">
-              <Trophy className="w-8 h-8" />
+          <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-3 md:p-6">
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <Trophy className="w-4 h-4 md:w-8 md:h-8" />
               <div>
-                <p className="text-sm opacity-80">Total Draws</p>
-                <p className="text-2xl font-bold">{draws.length}</p>
+                <p className="text-xs md:text-sm opacity-80">Draws</p>
+                <p className="text-lg md:text-2xl font-bold">{draws.length}</p>
               </div>
             </div>
           </div>
-          <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-6">
-            <div className="flex items-center space-x-3">
-              <Users className="w-8 h-8" />
+          <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-3 md:p-6">
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <Users className="w-4 h-4 md:w-8 md:h-8" />
               <div>
-                <p className="text-sm opacity-80">Total Winners</p>
-                <p className="text-2xl font-bold">{winners.length}</p>
+                <p className="text-xs md:text-sm opacity-80">Winners</p>
+                <p className="text-lg md:text-2xl font-bold">{winners.length}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="space-y-6 md:space-y-8">
           {/* Customers Management */}
-          <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-2xl font-bold mb-4">👥 Customers ({customers.length})</h3>
-            <div className="space-y-4 mb-6">
+          <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-4 md:p-6 shadow-2xl">
+            <h3 className="text-xl md:text-2xl font-bold mb-4">👥 Customers ({customers.length})</h3>
+            <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
               <input
                 type="text"
                 placeholder="Customer Name"
                 value={newCustomer.name}
                 onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
-                className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
               />
-              <input
-                type="tel"
-                placeholder="Phone Number"
-                value={newCustomer.phone}
-                onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
-                className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={newCustomer.email}
-                onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
-                className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              />
+              <div className="grid md:grid-cols-2 gap-3">
+                <input
+                  type="tel"
+                  placeholder="Phone Number"
+                  value={newCustomer.phone}
+                  onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                  className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={newCustomer.email}
+                  onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                  className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
+                />
+              </div>
               <button
                 onClick={addCustomer}
-                className="w-full bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                className="w-full bg-green-500 hover:bg-green-600 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-sm md:text-base"
               >
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4 h-4 md:w-5 md:h-5" />
                 <span>Add Customer</span>
               </button>
             </div>
-            <div className="max-h-64 overflow-y-auto space-y-2">
+            <div className="max-h-48 md:max-h-64 overflow-y-auto space-y-2">
               {customers.map(customer => (
-                <div key={customer.id} className="bg-white/20 p-4 rounded-lg flex justify-between items-center">
+                <div key={customer.id} className="bg-white/20 p-3 md:p-4 rounded-lg flex justify-between items-center">
                   <div>
-                    <p className="font-semibold">{customer.name}</p>
-                    <p className="text-sm text-cyan-200">{customer.phone}</p>
+                    <p className="font-semibold text-sm md:text-base">{customer.name}</p>
+                    <p className="text-xs md:text-sm text-cyan-200">{customer.phone}</p>
                   </div>
                   <button
                     onClick={() => deleteCustomer(customer.id)}
                     className="text-red-400 hover:text-red-300"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
                   </button>
                 </div>
               ))}
@@ -204,45 +227,65 @@ const AdminPage: React.FC<AdminPageProps> = ({
           </div>
 
           {/* Events Management */}
-          <div className="bg-gradient-to-br from-cyan-600 to-blue-600 rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-2xl font-bold mb-4">🎯 Events & Draws</h3>
-            <div className="space-y-4 mb-6">
+          <div className="bg-gradient-to-br from-cyan-600 to-blue-600 rounded-3xl p-4 md:p-6 shadow-2xl">
+            <h3 className="text-xl md:text-2xl font-bold mb-4">🎯 Events & Draws</h3>
+            
+            {/* Countdown Controls */}
+            <div className="bg-white/10 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
+              <h4 className="text-lg font-semibold mb-2">Draw Countdown</h4>
+              <div className="flex items-center space-x-2 md:space-x-4">
+                <Clock className="w-4 h-4 md:w-5 md:h-5" />
+                <input
+                  type="number"
+                  min="5"
+                  max="60"
+                  value={countdownDuration}
+                  onChange={(e) => setCountdownDuration(parseInt(e.target.value))}
+                  className="w-20 px-2 py-1 bg-white/20 rounded border border-white/30 text-white text-sm md:text-base"
+                />
+                <span className="text-sm md:text-base">seconds</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
               <input
                 type="text"
                 placeholder="Event Name"
                 value={newEvent.name}
                 onChange={(e) => setNewEvent({...newEvent, name: e.target.value})}
-                className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
               />
-              <input
-                type="number"
-                placeholder="Number of Winners"
-                value={newEvent.winners_count}
-                onChange={(e) => setNewEvent({...newEvent, winners_count: parseInt(e.target.value)})}
-                className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              />
-              <input
-                type="date"
-                value={newEvent.event_date}
-                onChange={(e) => setNewEvent({...newEvent, event_date: e.target.value})}
-                className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              />
+              <div className="grid md:grid-cols-2 gap-3">
+                <input
+                  type="number"
+                  placeholder="Number of Winners"
+                  value={newEvent.winners_count}
+                  onChange={(e) => setNewEvent({...newEvent, winners_count: parseInt(e.target.value)})}
+                  className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
+                />
+                <input
+                  type="date"
+                  value={newEvent.event_date}
+                  onChange={(e) => setNewEvent({...newEvent, event_date: e.target.value})}
+                  className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
+                />
+              </div>
               <button
                 onClick={addEvent}
-                className="w-full bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                className="w-full bg-green-500 hover:bg-green-600 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-sm md:text-base"
               >
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4 h-4 md:w-5 md:h-5" />
                 <span>Add Event</span>
               </button>
             </div>
 
             {/* Prize Selection */}
-            <div className="mb-6">
+            <div className="mb-4 md:mb-6">
               <label className="block text-sm font-medium mb-2">Select Prize:</label>
               <select
                 value={selectedPrize}
                 onChange={(e) => setSelectedPrize(e.target.value)}
-                className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
               >
                 {prizeOptions.map(prize => (
                   <option key={prize} value={prize} className="bg-gray-800">{prize}</option>
@@ -252,13 +295,13 @@ const AdminPage: React.FC<AdminPageProps> = ({
 
             <div className="space-y-2">
               {events.map(event => (
-                <div key={event.id} className="bg-white/20 p-4 rounded-lg">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-semibold">{event.name}</h4>
+                <div key={event.id} className="bg-white/20 p-3 md:p-4 rounded-lg">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 space-y-2 md:space-y-0">
+                    <h4 className="font-semibold text-sm md:text-base">{event.name}</h4>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => toggleEventActive(event.id, !event.active)}
-                        className={`px-3 py-1 rounded text-sm ${event.active ? 'bg-green-500' : 'bg-gray-500'}`}
+                        className={`px-2 md:px-3 py-1 rounded text-xs md:text-sm ${event.active ? 'bg-green-500' : 'bg-gray-500'}`}
                       >
                         {event.active ? 'Active' : 'Inactive'}
                       </button>
@@ -266,20 +309,30 @@ const AdminPage: React.FC<AdminPageProps> = ({
                         onClick={() => deleteEvent(event.id)}
                         className="text-red-400 hover:text-red-300"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                       </button>
                     </div>
                   </div>
-                  <p className="text-sm text-cyan-200 mb-2">{event.winners_count} winners • {event.event_date}</p>
+                  <p className="text-xs md:text-sm text-cyan-200 mb-2">{event.winners_count} winners • {event.event_date}</p>
                   {event.active && (
-                    <button
-                      onClick={() => conductDraw(event.id, selectedPrize)}
-                      disabled={isDrawing || customers.length === 0}
-                      className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:bg-gray-500 px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
-                    >
-                      <Play className="w-4 h-4" />
-                      <span>{isDrawing ? 'Drawing...' : 'Start Draw'}</span>
-                    </button>
+                    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
+                      <button
+                        onClick={() => conductDraw(event.id, selectedPrize)}
+                        disabled={isDrawing || customers.length === 0}
+                        className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
+                      >
+                        <Play className="w-3 h-3 md:w-4 md:h-4" />
+                        <span>Start Now</span>
+                      </button>
+                      <button
+                        onClick={() => startCountdownDraw(event.id, selectedPrize)}
+                        disabled={isDrawing || customers.length === 0}
+                        className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
+                      >
+                        <Clock className="w-3 h-3 md:w-4 md:h-4" />
+                        <span>Countdown</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -287,44 +340,44 @@ const AdminPage: React.FC<AdminPageProps> = ({
           </div>
 
           {/* External Links Management */}
-          <div className="bg-gradient-to-br from-green-600 to-teal-600 rounded-3xl p-6 shadow-2xl lg:col-span-2">
-            <h3 className="text-2xl font-bold mb-4">🔗 External Links</h3>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
+          <div className="bg-gradient-to-br from-green-600 to-teal-600 rounded-3xl p-4 md:p-6 shadow-2xl">
+            <h3 className="text-xl md:text-2xl font-bold mb-4">🔗 External Links</h3>
+            <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+              <div className="space-y-3 md:space-y-4">
                 <input
                   type="text"
                   placeholder="Link Name"
                   value={newLink.name}
                   onChange={(e) => setNewLink({...newLink, name: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
                 />
                 <input
                   type="url"
                   placeholder="URL"
                   value={newLink.url}
                   onChange={(e) => setNewLink({...newLink, url: e.target.value})}
-                  className="w-full px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
                 />
                 <button
                   onClick={addLink}
-                  className="w-full bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                  className="w-full bg-green-500 hover:bg-green-600 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-sm md:text-base"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-4 h-4 md:w-5 md:h-5" />
                   <span>Add Link</span>
                 </button>
               </div>
               <div className="space-y-2">
                 {externalLinks.map(link => (
-                  <div key={link.id} className="bg-white/20 p-4 rounded-lg flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold">{link.name}</p>
-                      <p className="text-sm text-cyan-200 truncate">{link.url}</p>
+                  <div key={link.id} className="bg-white/20 p-3 md:p-4 rounded-lg flex justify-between items-center">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm md:text-base">{link.name}</p>
+                      <p className="text-xs md:text-sm text-cyan-200 truncate">{link.url}</p>
                     </div>
                     <button
                       onClick={() => deleteLink(link.id)}
-                      className="text-red-400 hover:text-red-300"
+                      className="text-red-400 hover:text-red-300 ml-2"
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
                   </div>
                 ))}
@@ -333,6 +386,14 @@ const AdminPage: React.FC<AdminPageProps> = ({
           </div>
         </div>
       </div>
+
+      {showCountdown && (
+        <DrawCountdown
+          duration={countdownDuration}
+          onComplete={handleCountdownComplete}
+          onCancel={handleCountdownCancel}
+        />
+      )}
     </div>
   );
 };

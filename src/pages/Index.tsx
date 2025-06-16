@@ -27,14 +27,16 @@ const Index = () => {
 
   const queryClient = useQueryClient();
 
-  // Fetch data from Supabase
+  // Fetch data from Supabase with reduced frequency for 3G optimization
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
     queryFn: async () => {
       const { data, error } = await supabase.from('customers').select('*');
       if (error) throw error;
       return data as Customer[];
-    }
+    },
+    staleTime: 30000, // 30 seconds
+    gcTime: 300000 // 5 minutes
   });
 
   const { data: events = [] } = useQuery({
@@ -43,7 +45,9 @@ const Index = () => {
       const { data, error } = await supabase.from('events').select('*');
       if (error) throw error;
       return data as Event[];
-    }
+    },
+    staleTime: 30000,
+    gcTime: 300000
   });
 
   const { data: winners = [] } = useQuery({
@@ -59,7 +63,9 @@ const Index = () => {
         .order('won_at', { ascending: false });
       if (error) throw error;
       return data as Winner[];
-    }
+    },
+    staleTime: 15000,
+    gcTime: 300000
   });
 
   const { data: draws = [] } = useQuery({
@@ -74,7 +80,9 @@ const Index = () => {
         .order('conducted_at', { ascending: false });
       if (error) throw error;
       return data as Draw[];
-    }
+    },
+    staleTime: 30000,
+    gcTime: 300000
   });
 
   const { data: externalLinks = [] } = useQuery({
@@ -83,7 +91,9 @@ const Index = () => {
       const { data, error } = await supabase.from('external_links').select('*');
       if (error) throw error;
       return data as ExternalLink[];
-    }
+    },
+    staleTime: 60000,
+    gcTime: 300000
   });
 
   const adminLogin = () => {
@@ -201,7 +211,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900">
-      <LiveUserMonitor />
+      {/* Only show LiveUserMonitor on non-admin pages to prevent blocking */}
+      {!isAdmin && <LiveUserMonitor />}
       <LotteryHeader currentPage={currentPage} setCurrentPage={setCurrentPage} />
       {renderCurrentPage()}
       <LotteryFooter />
