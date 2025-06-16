@@ -32,7 +32,7 @@ const ContactPage: React.FC<ContactPageProps> = ({ externalLinks }) => {
                 </div>
                 <div>
                   <p className="text-lg font-semibold">Phone</p>
-                  <p className="text-cyan-200">+91 9876543210</p>
+                  <p className="text-cyan-200">+91 7005498122</p>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
@@ -41,7 +41,7 @@ const ContactPage: React.FC<ContactPageProps> = ({ externalLinks }) => {
                 </div>
                 <div>
                   <p className="text-lg font-semibold">Email</p>
-                  <p className="text-cyan-200">support@dropee.com</p>
+                  <p className="text-cyan-200">hashtagdropee@gmail.com</p>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
@@ -50,7 +50,7 @@ const ContactPage: React.FC<ContactPageProps> = ({ externalLinks }) => {
                 </div>
                 <div>
                   <p className="text-lg font-semibold">Address</p>
-                  <p className="text-cyan-200">Ukhrul, Manipur, India</p>
+                  <p className="text-cyan-200">Viewland Zone II opposite Warm Delight</p>
                 </div>
               </div>
             </div>
