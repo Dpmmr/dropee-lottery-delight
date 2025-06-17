@@ -30,19 +30,34 @@ const Index = () => {
 
   const queryClient = useQueryClient();
 
-  // Listen for countdown broadcasts from admin
+  // Listen for countdown broadcasts from admin with improved error handling
   useEffect(() => {
     if (!isAdmin) {
+      console.log('Setting up countdown listener for users');
+      
       const channel = supabase
-        .channel('lottery-countdown')
-        .on('broadcast', { event: 'countdown-start' }, (payload) => {
-          setCountdownDuration(payload.payload.duration);
-          setCurrentPrizes(payload.payload.prizes);
-          setShowUserCountdown(true);
+        .channel('lottery-countdown-user', {
+          config: {
+            broadcast: { self: false }
+          }
         })
-        .subscribe();
+        .on('broadcast', { event: 'countdown-start' }, (payload) => {
+          console.log('Received countdown broadcast:', payload);
+          if (payload.payload) {
+            setCountdownDuration(payload.payload.duration || 10);
+            setCurrentPrizes(payload.payload.prizes || []);
+            setShowUserCountdown(true);
+          }
+        })
+        .subscribe((status, err) => {
+          console.log('User countdown channel status:', status);
+          if (err) {
+            console.error('User countdown channel error:', err);
+          }
+        });
 
       return () => {
+        console.log('Cleaning up user countdown channel');
         supabase.removeChannel(channel);
       };
     }
@@ -131,6 +146,7 @@ const Index = () => {
     const event = events.find(e => e.id === eventId);
     if (!event || customers.length === 0) return;
 
+    console.log('Conducting draw for event:', eventId, 'with prizes:', prizes);
     setIsDrawing(true);
     setShowCrystalBalls(true);
     setCurrentPrizes(prizes);
@@ -143,6 +159,7 @@ const Index = () => {
   };
 
   const handleAnimationComplete = async (winnerNames: string[]) => {
+    console.log('Animation completed with winners:', winnerNames);
     setShowCrystalBalls(false);
     setCurrentWinners(winnerNames);
     setShowWinnerReveal(true);
@@ -183,6 +200,7 @@ const Index = () => {
   };
 
   const handleUserCountdownComplete = () => {
+    console.log('User countdown completed');
     setShowUserCountdown(false);
     // The admin countdown will trigger the actual draw
   };

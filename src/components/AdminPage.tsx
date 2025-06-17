@@ -72,17 +72,39 @@ const AdminPage: React.FC<AdminPageProps> = ({
   };
 
   const deleteCustomer = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this customer? This will also delete all their winner records.')) {
+      return;
+    }
+
     try {
-      const { error } = await supabase.from('customers').delete().eq('id', id);
-      if (error) {
-        console.error('Error deleting customer:', error);
-        alert('Error deleting customer: ' + error.message);
+      // First delete associated winners
+      const { error: winnersError } = await supabase
+        .from('winners')
+        .delete()
+        .eq('customer_id', id);
+
+      if (winnersError) {
+        console.error('Error deleting winner records:', winnersError);
+        alert('Error deleting customer winner records: ' + winnersError.message);
+        return;
+      }
+
+      // Then delete the customer
+      const { error: customerError } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', id);
+
+      if (customerError) {
+        console.error('Error deleting customer:', customerError);
+        alert('Error deleting customer: ' + customerError.message);
       } else {
         queryClient.invalidateQueries({ queryKey: ['customers'] });
+        queryClient.invalidateQueries({ queryKey: ['winners'] });
       }
     } catch (err) {
       console.error('Unexpected error:', err);
-      alert('Unexpected error occurred');
+      alert('Unexpected error occurred while deleting customer');
     }
   };
 
@@ -105,17 +127,74 @@ const AdminPage: React.FC<AdminPageProps> = ({
   };
 
   const deleteEvent = async (id: string) => {
-    try {
-      const { error } = await supabase.from('events').delete().eq('id', id);
-      if (error) {
-        console.error('Error deleting event:', error);
-        alert('Error deleting event: ' + error.message);
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['events'] });
+    const eventHasData = winners.some(w => w.event_id === id) || draws.some(d => d.event_id === id);
+    
+    if (eventHasData) {
+      const confirmCascade = confirm(
+        'This event has associated winner records and draws. Do you want to delete everything including all winners and draws? This action cannot be undone.'
+      );
+      
+      if (!confirmCascade) {
+        return;
       }
-    } catch (err) {
-      console.error('Unexpected error:', err);
-      alert('Unexpected error occurred');
+
+      try {
+        // Delete in proper order due to foreign key constraints
+        console.log('Deleting winners for event:', id);
+        const { error: winnersError } = await supabase
+          .from('winners')
+          .delete()
+          .eq('event_id', id);
+
+        if (winnersError) {
+          console.error('Error deleting winners:', winnersError);
+          alert('Error deleting winner records: ' + winnersError.message);
+          return;
+        }
+
+        console.log('Deleting draws for event:', id);
+        const { error: drawsError } = await supabase
+          .from('draws')
+          .delete()
+          .eq('event_id', id);
+
+        if (drawsError) {
+          console.error('Error deleting draws:', drawsError);
+          alert('Error deleting draw records: ' + drawsError.message);
+          return;
+        }
+
+        console.log('Deleting event:', id);
+        const { error: eventError } = await supabase
+          .from('events')
+          .delete()
+          .eq('id', id);
+
+        if (eventError) {
+          console.error('Error deleting event:', eventError);
+          alert('Error deleting event: ' + eventError.message);
+        } else {
+          queryClient.invalidateQueries({ queryKey: ['events'] });
+          queryClient.invalidateQueries({ queryKey: ['winners'] });
+          queryClient.invalidateQueries({ queryKey: ['draws'] });
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        alert('Unexpected error occurred while deleting event');
+      }
+    } else {
+      try {
+        const { error } = await supabase.from('events').delete().eq('id', id);
+        if (error) {
+          console.error('Error deleting event:', error);
+          alert('Error deleting event: ' + error.message);
+        } else {
+          queryClient.invalidateQueries({ queryKey: ['events'] });
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        alert('Unexpected error occurred');
+      }
     }
   };
 
@@ -168,24 +247,53 @@ const AdminPage: React.FC<AdminPageProps> = ({
   };
 
   const startCountdownDraw = async (eventId: string) => {
-    // Start admin countdown (no popup)
+    console.log('Starting countdown draw for event:', eventId);
+    
+    // Start admin countdown (no popup for admin)
     setAdminCountdown({ eventId, timeLeft: countdownDuration });
     
-    // Broadcast countdown to all users via realtime
+    // Create and subscribe to channel first, then broadcast
     try {
-      await supabase
-        .channel('lottery-countdown')
-        .send({
-          type: 'broadcast',
-          event: 'countdown-start',
-          payload: { 
-            eventId, 
-            duration: countdownDuration,
-            prizes 
+      const channel = supabase.channel('lottery-countdown-broadcast', {
+        config: {
+          broadcast: { self: true }
+        }
+      });
+
+      // Subscribe to the channel first
+      await new Promise((resolve, reject) => {
+        channel.subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Channel subscribed successfully');
+            resolve(status);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Channel subscription error:', err);
+            reject(err);
           }
         });
+      });
+
+      // Now broadcast the countdown
+      const broadcastResult = await channel.send({
+        type: 'broadcast',
+        event: 'countdown-start',
+        payload: { 
+          eventId, 
+          duration: countdownDuration,
+          prizes: prizes.slice(0, events.find(e => e.id === eventId)?.winners_count || 3)
+        }
+      });
+
+      console.log('Broadcast result:', broadcastResult);
+
+      // Clean up the channel after a delay
+      setTimeout(() => {
+        supabase.removeChannel(channel);
+      }, (countdownDuration + 5) * 1000);
+
     } catch (err) {
-      console.error('Error broadcasting countdown:', err);
+      console.error('Error setting up countdown broadcast:', err);
+      alert('Error starting countdown broadcast. The draw will still proceed.');
     }
   };
 
@@ -222,8 +330,9 @@ const AdminPage: React.FC<AdminPageProps> = ({
           <button
             onClick={() => {setIsAdmin(false); setCurrentPage('home');}}
             className="bg-red-500 hover:bg-red-600 px-3 md:px-4 py-2 rounded-lg transition-colors text-sm md:text-base"
+            disabled={adminCountdown !== null}
           >
-            Logout
+            {adminCountdown ? `Logout (${adminCountdown.timeLeft}s)` : 'Logout'}
           </button>
         </div>
 
@@ -377,11 +486,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
                   className="w-20 px-2 py-1 bg-white/20 rounded border border-white/30 text-white text-sm md:text-base"
                 />
                 <span className="text-sm md:text-base">seconds</span>
-                {adminCountdown && (
-                  <div className="bg-yellow-500 px-3 py-1 rounded text-black font-bold">
-                    Starting in {adminCountdown.timeLeft}s
-                  </div>
-                )}
               </div>
             </div>
 
@@ -456,7 +560,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                         <Clock className="w-3 h-3 md:w-4 md:h-4" />
                         <span>
                           {adminCountdown && adminCountdown.eventId === event.id 
-                            ? `Starting in ${adminCountdown.timeLeft}s` 
+                            ? `${adminCountdown.timeLeft}s` 
                             : 'Countdown'}
                         </span>
                       </button>
