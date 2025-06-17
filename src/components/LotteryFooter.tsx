@@ -116,16 +116,8 @@ const LotteryFooter: React.FC = () => {
                 © 2024 DROPEE UKHRUL. All rights reserved.
               </p>
               <p className="text-xs md:text-sm text-gray-400 mt-1">
-                🎯 Fair Play • 🏆 Transparent Draws • 🎉 Amazing Prizes
+                💻 Developed by <span className="text-yellow-400 font-semibold">Jihal Shimray</span>
               </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="bg-gradient-to-r from-green-400 to-blue-500 rounded-full px-4 py-2">
-                <span className="text-sm font-bold">🔥 Live Lottery</span>
-              </div>
-              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full px-4 py-2">
-                <span className="text-sm font-bold text-white">✨ Join Today</span>
-              </div>
             </div>
           </div>
         </div>
