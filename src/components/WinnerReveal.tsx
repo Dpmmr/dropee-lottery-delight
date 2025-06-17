@@ -3,19 +3,14 @@ import React from 'react';
 
 interface WinnerRevealProps {
   winners: string[];
-  prizes: { first: string; second: string; third: string };
+  prizes: string[];
   onClose: () => void;
   onBack: () => void;
 }
 
 const WinnerReveal: React.FC<WinnerRevealProps> = ({ winners, prizes, onClose, onBack }) => {
   const getPrize = (index: number) => {
-    switch (index) {
-      case 0: return prizes.first;
-      case 1: return prizes.second;
-      case 2: return prizes.third;
-      default: return 'Participation Prize';
-    }
+    return prizes[index] || 'Participation Prize';
   };
 
   return (

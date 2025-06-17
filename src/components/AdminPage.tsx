@@ -1,9 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Play, Users, Trophy, BarChart3, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLiveMonitoring } from '@/hooks/useLiveMonitoring';
-import DrawCountdown from './DrawCountdown';
 import type { Customer, Event, Winner, Draw, ExternalLink } from '@/types/lottery';
 import { QueryClient } from '@tanstack/react-query';
 
@@ -13,7 +12,7 @@ interface AdminPageProps {
   winners: Winner[];
   draws: Draw[];
   externalLinks: ExternalLink[];
-  conductDraw: (eventId: string, prizeDescription: string, prizes: { first: string, second: string, third: string }) => void;
+  conductDraw: (eventId: string, prizeDescription: string, prizes: string[]) => void;
   isDrawing: boolean;
   setIsAdmin: (isAdmin: boolean) => void;
   setCurrentPage: (page: string) => void;
@@ -36,92 +35,181 @@ const AdminPage: React.FC<AdminPageProps> = ({
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
   const [newEvent, setNewEvent] = useState({ name: '', winners_count: 3, event_date: '', active: false });
   const [newLink, setNewLink] = useState({ name: '', url: '' });
-  const [prizes, setPrizes] = useState({
-    first: 'Free Delivery for 7 Days',
-    second: 'Free Delivery for 3 Days', 
-    third: '10% Discount Next Order'
-  });
-  const [showCountdown, setShowCountdown] = useState(false);
+  const [prizes, setPrizes] = useState(['Free Delivery for 7 Days', 'Free Delivery for 3 Days', '10% Discount Next Order']);
   const [countdownDuration, setCountdownDuration] = useState(10);
-  const [pendingDrawData, setPendingDrawData] = useState<{eventId: string, prizes: any} | null>(null);
+  const [adminCountdown, setAdminCountdown] = useState<{eventId: string, timeLeft: number} | null>(null);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (adminCountdown && adminCountdown.timeLeft > 0) {
+      timer = setTimeout(() => {
+        setAdminCountdown(prev => prev ? {...prev, timeLeft: prev.timeLeft - 1} : null);
+      }, 1000);
+    } else if (adminCountdown && adminCountdown.timeLeft === 0) {
+      // Start the draw
+      conductDraw(adminCountdown.eventId, 'Countdown Draw', prizes);
+      setAdminCountdown(null);
+    }
+    return () => clearTimeout(timer);
+  }, [adminCountdown, conductDraw, prizes]);
 
   const addCustomer = async () => {
     if (newCustomer.name && newCustomer.phone && newCustomer.email) {
-      const { error } = await supabase.from('customers').insert(newCustomer);
-      if (!error) {
-        setNewCustomer({ name: '', phone: '', email: '' });
-        queryClient.invalidateQueries({ queryKey: ['customers'] });
+      try {
+        const { error } = await supabase.from('customers').insert(newCustomer);
+        if (error) {
+          console.error('Error adding customer:', error);
+          alert('Error adding customer: ' + error.message);
+        } else {
+          setNewCustomer({ name: '', phone: '', email: '' });
+          queryClient.invalidateQueries({ queryKey: ['customers'] });
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        alert('Unexpected error occurred');
       }
     }
   };
 
   const deleteCustomer = async (id: string) => {
-    const { error } = await supabase.from('customers').delete().eq('id', id);
-    if (!error) {
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    try {
+      const { error } = await supabase.from('customers').delete().eq('id', id);
+      if (error) {
+        console.error('Error deleting customer:', error);
+        alert('Error deleting customer: ' + error.message);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['customers'] });
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      alert('Unexpected error occurred');
     }
   };
 
   const addEvent = async () => {
     if (newEvent.name && newEvent.winners_count && newEvent.event_date) {
-      const { error } = await supabase.from('events').insert(newEvent);
-      if (!error) {
-        setNewEvent({ name: '', winners_count: 3, event_date: '', active: false });
-        queryClient.invalidateQueries({ queryKey: ['events'] });
+      try {
+        const { error } = await supabase.from('events').insert(newEvent);
+        if (error) {
+          console.error('Error adding event:', error);
+          alert('Error adding event: ' + error.message);
+        } else {
+          setNewEvent({ name: '', winners_count: 3, event_date: '', active: false });
+          queryClient.invalidateQueries({ queryKey: ['events'] });
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        alert('Unexpected error occurred');
       }
     }
   };
 
   const deleteEvent = async (id: string) => {
-    const { error } = await supabase.from('events').delete().eq('id', id);
-    if (!error) {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
+    try {
+      const { error } = await supabase.from('events').delete().eq('id', id);
+      if (error) {
+        console.error('Error deleting event:', error);
+        alert('Error deleting event: ' + error.message);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['events'] });
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      alert('Unexpected error occurred');
     }
   };
 
   const toggleEventActive = async (id: string, active: boolean) => {
-    // First deactivate all events
-    await supabase.from('events').update({ active: false }).neq('id', '');
-    // Then activate the selected one if needed
-    if (active) {
-      await supabase.from('events').update({ active: true }).eq('id', id);
+    try {
+      // First deactivate all events
+      await supabase.from('events').update({ active: false }).neq('id', '');
+      // Then activate the selected one if needed
+      if (active) {
+        await supabase.from('events').update({ active: true }).eq('id', id);
+      }
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    } catch (err) {
+      console.error('Error updating event:', err);
+      alert('Error updating event');
     }
-    queryClient.invalidateQueries({ queryKey: ['events'] });
   };
 
   const addLink = async () => {
     if (newLink.name && newLink.url) {
-      const { error } = await supabase.from('external_links').insert(newLink);
-      if (!error) {
-        setNewLink({ name: '', url: '' });
-        queryClient.invalidateQueries({ queryKey: ['external_links'] });
+      try {
+        const { error } = await supabase.from('external_links').insert(newLink);
+        if (error) {
+          console.error('Error adding link:', error);
+          alert('Error adding link: ' + error.message);
+        } else {
+          setNewLink({ name: '', url: '' });
+          queryClient.invalidateQueries({ queryKey: ['external_links'] });
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        alert('Unexpected error occurred');
       }
     }
   };
 
   const deleteLink = async (id: string) => {
-    const { error } = await supabase.from('external_links').delete().eq('id', id);
-    if (!error) {
-      queryClient.invalidateQueries({ queryKey: ['external_links'] });
+    try {
+      const { error } = await supabase.from('external_links').delete().eq('id', id);
+      if (error) {
+        console.error('Error deleting link:', error);
+        alert('Error deleting link: ' + error.message);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['external_links'] });
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      alert('Unexpected error occurred');
     }
   };
 
-  const startCountdownDraw = (eventId: string) => {
-    setPendingDrawData({ eventId, prizes });
-    setShowCountdown(true);
-  };
-
-  const handleCountdownComplete = () => {
-    setShowCountdown(false);
-    if (pendingDrawData) {
-      conductDraw(pendingDrawData.eventId, 'Custom Prize Draw', pendingDrawData.prizes);
-      setPendingDrawData(null);
+  const startCountdownDraw = async (eventId: string) => {
+    // Start admin countdown (no popup)
+    setAdminCountdown({ eventId, timeLeft: countdownDuration });
+    
+    // Broadcast countdown to all users via realtime
+    try {
+      await supabase
+        .channel('lottery-countdown')
+        .send({
+          type: 'broadcast',
+          event: 'countdown-start',
+          payload: { 
+            eventId, 
+            duration: countdownDuration,
+            prizes 
+          }
+        });
+    } catch (err) {
+      console.error('Error broadcasting countdown:', err);
     }
   };
 
-  const handleCountdownCancel = () => {
-    setShowCountdown(false);
-    setPendingDrawData(null);
+  const addPrize = () => {
+    setPrizes([...prizes, '']);
+  };
+
+  const removePrize = (index: number) => {
+    if (prizes.length > 1) {
+      setPrizes(prizes.filter((_, i) => i !== index));
+    }
+  };
+
+  const updatePrize = (index: number, value: string) => {
+    const newPrizes = [...prizes];
+    newPrizes[index] = value;
+    setPrizes(newPrizes);
+  };
+
+  const getPrizeLabel = (index: number) => {
+    if (index === 0) return '🥇 First Prize:';
+    if (index === 1) return '🥈 Second Prize:';
+    if (index === 2) return '🥉 Third Prize:';
+    return `🏆 Prize ${index + 1}:`;
   };
 
   return (
@@ -239,35 +327,39 @@ const AdminPage: React.FC<AdminPageProps> = ({
             
             {/* Prize Configuration */}
             <div className="bg-white/10 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
-              <h4 className="text-lg font-semibold mb-3">🏆 Prize Configuration</h4>
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-lg font-semibold">🏆 Prize Configuration</h4>
+                <button
+                  onClick={addPrize}
+                  className="bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm flex items-center space-x-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Prize</span>
+                </button>
+              </div>
               <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">🥇 First Prize:</label>
-                  <input
-                    type="text"
-                    value={prizes.first}
-                    onChange={(e) => setPrizes({...prizes, first: e.target.value})}
-                    className="w-full px-3 py-2 bg-white/20 rounded border border-white/30 text-white text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">🥈 Second Prize:</label>
-                  <input
-                    type="text"
-                    value={prizes.second}
-                    onChange={(e) => setPrizes({...prizes, second: e.target.value})}
-                    className="w-full px-3 py-2 bg-white/20 rounded border border-white/30 text-white text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">🥉 Third Prize:</label>
-                  <input
-                    type="text"
-                    value={prizes.third}
-                    onChange={(e) => setPrizes({...prizes, third: e.target.value})}
-                    className="w-full px-3 py-2 bg-white/20 rounded border border-white/30 text-white text-sm"
-                  />
-                </div>
+                {prizes.map((prize, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium mb-1">{getPrizeLabel(index)}</label>
+                      <input
+                        type="text"
+                        value={prize}
+                        onChange={(e) => updatePrize(index, e.target.value)}
+                        className="w-full px-3 py-2 bg-white/20 rounded border border-white/30 text-white text-sm"
+                        placeholder={`Prize ${index + 1} description`}
+                      />
+                    </div>
+                    {prizes.length > 1 && (
+                      <button
+                        onClick={() => removePrize(index)}
+                        className="text-red-400 hover:text-red-300 p-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
             
@@ -285,6 +377,11 @@ const AdminPage: React.FC<AdminPageProps> = ({
                   className="w-20 px-2 py-1 bg-white/20 rounded border border-white/30 text-white text-sm md:text-base"
                 />
                 <span className="text-sm md:text-base">seconds</span>
+                {adminCountdown && (
+                  <div className="bg-yellow-500 px-3 py-1 rounded text-black font-bold">
+                    Starting in {adminCountdown.timeLeft}s
+                  </div>
+                )}
               </div>
             </div>
 
@@ -345,7 +442,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                     <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
                       <button
                         onClick={() => conductDraw(event.id, 'Manual Draw', prizes)}
-                        disabled={isDrawing || customers.length === 0}
+                        disabled={isDrawing || customers.length === 0 || adminCountdown !== null}
                         className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
                       >
                         <Play className="w-3 h-3 md:w-4 md:h-4" />
@@ -353,11 +450,15 @@ const AdminPage: React.FC<AdminPageProps> = ({
                       </button>
                       <button
                         onClick={() => startCountdownDraw(event.id)}
-                        disabled={isDrawing || customers.length === 0}
+                        disabled={isDrawing || customers.length === 0 || adminCountdown !== null}
                         className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
                       >
                         <Clock className="w-3 h-3 md:w-4 md:h-4" />
-                        <span>Countdown</span>
+                        <span>
+                          {adminCountdown && adminCountdown.eventId === event.id 
+                            ? `Starting in ${adminCountdown.timeLeft}s` 
+                            : 'Countdown'}
+                        </span>
                       </button>
                     </div>
                   )}
@@ -413,14 +514,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
           </div>
         </div>
       </div>
-
-      {showCountdown && (
-        <DrawCountdown
-          duration={countdownDuration}
-          onComplete={handleCountdownComplete}
-          onCancel={handleCountdownCancel}
-        />
-      )}
     </div>
   );
 };

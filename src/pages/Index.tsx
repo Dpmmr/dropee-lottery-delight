@@ -24,11 +24,29 @@ const Index = () => {
   const [showCrystalBalls, setShowCrystalBalls] = useState(false);
   const [showWinnerReveal, setShowWinnerReveal] = useState(false);
   const [currentWinners, setCurrentWinners] = useState<string[]>([]);
-  const [currentPrizes, setCurrentPrizes] = useState({ first: '', second: '', third: '' });
+  const [currentPrizes, setCurrentPrizes] = useState<string[]>([]);
   const [showUserCountdown, setShowUserCountdown] = useState(false);
   const [countdownDuration, setCountdownDuration] = useState(10);
 
   const queryClient = useQueryClient();
+
+  // Listen for countdown broadcasts from admin
+  useEffect(() => {
+    if (!isAdmin) {
+      const channel = supabase
+        .channel('lottery-countdown')
+        .on('broadcast', { event: 'countdown-start' }, (payload) => {
+          setCountdownDuration(payload.payload.duration);
+          setCurrentPrizes(payload.payload.prizes);
+          setShowUserCountdown(true);
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [isAdmin]);
 
   // Fetch data from Supabase with reduced frequency for 3G optimization
   const { data: customers = [] } = useQuery({
@@ -38,8 +56,8 @@ const Index = () => {
       if (error) throw error;
       return data as Customer[];
     },
-    staleTime: 30000, // 30 seconds
-    gcTime: 300000 // 5 minutes
+    staleTime: 30000,
+    gcTime: 300000
   });
 
   const { data: events = [] } = useQuery({
@@ -109,7 +127,7 @@ const Index = () => {
     }
   };
 
-  const conductDraw = async (eventId: string, prizeDescription: string, prizes: { first: string, second: string, third: string }) => {
+  const conductDraw = async (eventId: string, prizeDescription: string, prizes: string[]) => {
     const event = events.find(e => e.id === eventId);
     if (!event || customers.length === 0) return;
 
@@ -124,17 +142,6 @@ const Index = () => {
     });
   };
 
-  const startUserCountdown = (duration: number, eventId: string, prizes: { first: string, second: string, third: string }) => {
-    setCountdownDuration(duration);
-    setCurrentPrizes(prizes);
-    setShowUserCountdown(true);
-    
-    setTimeout(() => {
-      setShowUserCountdown(false);
-      conductDraw(eventId, 'Countdown Draw', prizes);
-    }, duration * 1000);
-  };
-
   const handleAnimationComplete = async (winnerNames: string[]) => {
     setShowCrystalBalls(false);
     setCurrentWinners(winnerNames);
@@ -147,13 +154,7 @@ const Index = () => {
         const winnerName = winnerNames[i];
         const customer = customers.find(c => c.name === winnerName);
         if (customer) {
-          let prizeDescription = '';
-          switch (i) {
-            case 0: prizeDescription = currentPrizes.first; break;
-            case 1: prizeDescription = currentPrizes.second; break;
-            case 2: prizeDescription = currentPrizes.third; break;
-            default: prizeDescription = 'Participation Prize';
-          }
+          const prizeDescription = currentPrizes[i] || 'Participation Prize';
           
           await supabase.from('winners').insert({
             customer_id: customer.id,
@@ -173,12 +174,17 @@ const Index = () => {
     setShowWinnerReveal(false);
     setIsDrawing(false);
     setCurrentWinners([]);
-    setCurrentPrizes({ first: '', second: '', third: '' });
+    setCurrentPrizes([]);
   };
 
   const goBackToDraw = () => {
     setShowWinnerReveal(false);
     setShowCrystalBalls(true);
+  };
+
+  const handleUserCountdownComplete = () => {
+    setShowUserCountdown(false);
+    // The admin countdown will trigger the actual draw
   };
 
   const renderCurrentPage = () => {
@@ -239,7 +245,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900">
-      {/* Only show LiveUserMonitor on non-admin pages to prevent blocking */}
       {!isAdmin && <LiveUserMonitor />}
       <LotteryHeader currentPage={currentPage} setCurrentPage={setCurrentPage} />
       {renderCurrentPage()}
@@ -248,7 +253,7 @@ const Index = () => {
       {showUserCountdown && (
         <DrawCountdown
           duration={countdownDuration}
-          onComplete={() => setShowUserCountdown(false)}
+          onComplete={handleUserCountdownComplete}
           onCancel={() => setShowUserCountdown(false)}
         />
       )}
