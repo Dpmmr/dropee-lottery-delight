@@ -1,103 +1,163 @@
 
 import React from 'react';
-import { Phone, ExternalLink, MessageCircle } from 'lucide-react';
-import type { ExternalLink as ExternalLinkType } from '@/types/lottery';
+import type { ExternalLink } from '@/types/lottery';
 
 interface ContactPageProps {
-  externalLinks: ExternalLinkType[];
+  externalLinks: ExternalLink[];
 }
 
 const ContactPage: React.FC<ContactPageProps> = ({ externalLinks }) => {
-  const phoneNumber = "917005498122";
-  const whatsappMessage = "Hello! I'm interested in DROPEE services and lottery draws.";
+  const phoneNumber = "+917005498122";
+  const whatsappNumber = "917005498122";
 
-  const handleWhatsAppClick = () => {
-    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(whatsappMessage)}`;
-    window.open(url, '_blank');
+  const handleCall = () => {
+    window.open(`tel:${phoneNumber}`, '_self');
   };
 
-  const handleCallClick = () => {
-    window.location.href = `tel:+${phoneNumber}`;
+  const handleWhatsApp = () => {
+    const message = encodeURIComponent("Hello! I'm interested in DROPEE lottery draws. Can you help me?");
+    window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank');
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900 text-white">
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-12">
-          <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+      <div className="container mx-auto px-4 py-8 md:py-16">
+        <div className="text-center mb-8 md:mb-12">
+          <h2 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
             📞 Contact Us
           </h2>
+          <p className="text-lg md:text-xl text-cyan-300">
+            Get in touch with our team for support, inquiries, or lottery information
+          </p>
         </div>
-        
-        <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
-          <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-8 shadow-2xl">
-            <h3 className="text-3xl font-bold mb-6 text-center">Get In Touch</h3>
+
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8 mb-8 md:mb-12">
+          {/* Phone Contact */}
+          <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-3xl p-6 md:p-8 shadow-2xl transform hover:scale-105 transition-all duration-300">
+            <div className="text-center">
+              <div className="text-4xl md:text-6xl mb-4">📱</div>
+              <h3 className="text-2xl md:text-3xl font-bold mb-4">Call Us Direct</h3>
+              <p className="text-lg md:text-xl text-green-100 mb-6">Speak with our support team</p>
+              <div className="bg-white/20 rounded-xl p-4 mb-6">
+                <p className="text-xl md:text-2xl font-bold text-yellow-300">{phoneNumber}</p>
+              </div>
+              <button
+                onClick={handleCall}
+                className="bg-white text-green-600 hover:bg-green-50 px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-lg md:text-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                📞 Call Now
+              </button>
+            </div>
+          </div>
+
+          {/* WhatsApp Contact */}
+          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-3xl p-6 md:p-8 shadow-2xl transform hover:scale-105 transition-all duration-300">
+            <div className="text-center">
+              <div className="text-4xl md:text-6xl mb-4">💬</div>
+              <h3 className="text-2xl md:text-3xl font-bold mb-4">WhatsApp Chat</h3>
+              <p className="text-lg md:text-xl text-green-100 mb-6">Quick and easy messaging</p>
+              <div className="bg-white/20 rounded-xl p-4 mb-6">
+                <p className="text-xl md:text-2xl font-bold text-yellow-300">{phoneNumber}</p>
+              </div>
+              <button
+                onClick={handleWhatsApp}
+                className="bg-white text-green-600 hover:bg-green-50 px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-lg md:text-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                💬 Chat on WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Contact Information */}
+        <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-6 md:p-8 shadow-2xl mb-8">
+          <h3 className="text-2xl md:text-3xl font-bold text-center mb-6">📍 Contact Information</h3>
+          <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  <Phone className="w-6 h-6" />
-                </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">🏢</span>
                 <div>
-                  <p className="text-lg font-semibold">Phone</p>
-                  <p className="text-cyan-200">+91 7005498122</p>
+                  <h4 className="font-bold text-lg">Business Name</h4>
+                  <p className="text-cyan-200">DROPEE UKHRUL</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  <span className="text-xl">📧</span>
-                </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">📞</span>
                 <div>
-                  <p className="text-lg font-semibold">Email</p>
-                  <p className="text-cyan-200">hashtagdropee@gmail.com</p>
+                  <h4 className="font-bold text-lg">Phone</h4>
+                  <p className="text-cyan-200">{phoneNumber}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  <span className="text-xl">📍</span>
-                </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">💬</span>
                 <div>
-                  <p className="text-lg font-semibold">Address</p>
-                  <p className="text-cyan-200">Viewland Zone II opposite Warm Delight</p>
+                  <h4 className="font-bold text-lg">WhatsApp</h4>
+                  <p className="text-cyan-200">{phoneNumber}</p>
                 </div>
               </div>
             </div>
-
-            <div className="mt-8 space-y-4">
-              <h4 className="text-xl font-bold text-center mb-4">Quick Contact</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={handleWhatsAppClick}
-                  className="bg-green-500 hover:bg-green-600 rounded-xl p-4 flex items-center justify-center space-x-2 transition-all duration-300 transform hover:scale-105"
-                >
-                  <MessageCircle className="w-6 h-6" />
-                  <span>WhatsApp</span>
-                </button>
-                <button
-                  onClick={handleCallClick}
-                  className="bg-blue-500 hover:bg-blue-600 rounded-xl p-4 flex items-center justify-center space-x-2 transition-all duration-300 transform hover:scale-105"
-                >
-                  <Phone className="w-6 h-6" />
-                  <span>Call Now</span>
-                </button>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">🕐</span>
+                <div>
+                  <h4 className="font-bold text-lg">Business Hours</h4>
+                  <p className="text-cyan-200">9:00 AM - 9:00 PM</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">🎯</span>
+                <div>
+                  <h4 className="font-bold text-lg">Service Area</h4>
+                  <p className="text-cyan-200">Ukhrul & Surrounding Areas</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">🏆</span>
+                <div>
+                  <h4 className="font-bold text-lg">Lottery Support</h4>
+                  <p className="text-cyan-200">Winner Assistance & Inquiries</p>
+                </div>
               </div>
             </div>
           </div>
-          
-          <div className="bg-gradient-to-br from-cyan-600 to-blue-600 rounded-3xl p-8 shadow-2xl">
-            <h3 className="text-3xl font-bold mb-6 text-center">Quick Links</h3>
-            <div className="space-y-4">
-              {externalLinks.map(link => (
-                <a 
+        </div>
+
+        {/* External Links */}
+        {externalLinks.length > 0 && (
+          <div className="bg-gradient-to-br from-cyan-600 to-blue-600 rounded-3xl p-6 md:p-8 shadow-2xl">
+            <h3 className="text-2xl md:text-3xl font-bold text-center mb-6">🔗 Quick Links</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {externalLinks.map((link) => (
+                <a
                   key={link.id}
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-4 p-4 bg-white/20 rounded-xl hover:bg-white/30 transition-all duration-300 transform hover:scale-105"
+                  className="bg-white/20 hover:bg-white/30 rounded-xl p-4 transition-all duration-300 transform hover:scale-105 text-center"
                 >
-                  <ExternalLink className="w-6 h-6" />
-                  <span className="text-lg">{link.name}</span>
+                  <h4 className="font-bold text-lg text-yellow-300">{link.name}</h4>
+                  <p className="text-sm text-cyan-200 truncate">{link.url}</p>
                 </a>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* FAQ Section */}
+        <div className="mt-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 md:p-8 shadow-2xl">
+          <h3 className="text-2xl md:text-3xl font-bold text-center mb-6">❓ Frequently Asked Questions</h3>
+          <div className="space-y-4">
+            <div className="bg-white/10 rounded-xl p-4">
+              <h4 className="font-bold text-lg mb-2">How do I participate in the lottery?</h4>
+              <p className="text-cyan-200">Simply place an order with DROPEE and you'll be automatically entered into our lottery draws!</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-4">
+              <h4 className="font-bold text-lg mb-2">When are the draws held?</h4>
+              <p className="text-cyan-200">We conduct regular draws including weekly, monthly, and special event draws. Check our home page for upcoming draws.</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-4">
+              <h4 className="font-bold text-lg mb-2">How will I know if I win?</h4>
+              <p className="text-cyan-200">Winners will be contacted directly by our admin team, or you can reach out to us using the contact details above.</p>
             </div>
           </div>
         </div>

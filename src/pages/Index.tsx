@@ -12,6 +12,7 @@ import LotteryFooter from '../components/LotteryFooter';
 import LiveUserMonitor from '../components/LiveUserMonitor';
 import CrystalBallAnimation from '../components/CrystalBallAnimation';
 import WinnerReveal from '../components/WinnerReveal';
+import DrawCountdown from '../components/DrawCountdown';
 import type { Customer, Event, Winner, Draw, ExternalLink } from '@/types/lottery';
 
 const Index = () => {
@@ -23,7 +24,9 @@ const Index = () => {
   const [showCrystalBalls, setShowCrystalBalls] = useState(false);
   const [showWinnerReveal, setShowWinnerReveal] = useState(false);
   const [currentWinners, setCurrentWinners] = useState<string[]>([]);
-  const [currentPrize, setCurrentPrize] = useState('');
+  const [currentPrizes, setCurrentPrizes] = useState({ first: '', second: '', third: '' });
+  const [showUserCountdown, setShowUserCountdown] = useState(false);
+  const [countdownDuration, setCountdownDuration] = useState(10);
 
   const queryClient = useQueryClient();
 
@@ -106,13 +109,13 @@ const Index = () => {
     }
   };
 
-  const conductDraw = async (eventId: string, prizeDescription: string) => {
+  const conductDraw = async (eventId: string, prizeDescription: string, prizes: { first: string, second: string, third: string }) => {
     const event = events.find(e => e.id === eventId);
     if (!event || customers.length === 0) return;
 
     setIsDrawing(true);
     setShowCrystalBalls(true);
-    setCurrentPrize(prizeDescription);
+    setCurrentPrizes(prizes);
 
     // Record the draw
     await supabase.from('draws').insert({
@@ -121,21 +124,41 @@ const Index = () => {
     });
   };
 
+  const startUserCountdown = (duration: number, eventId: string, prizes: { first: string, second: string, third: string }) => {
+    setCountdownDuration(duration);
+    setCurrentPrizes(prizes);
+    setShowUserCountdown(true);
+    
+    setTimeout(() => {
+      setShowUserCountdown(false);
+      conductDraw(eventId, 'Countdown Draw', prizes);
+    }, duration * 1000);
+  };
+
   const handleAnimationComplete = async (winnerNames: string[]) => {
     setShowCrystalBalls(false);
     setCurrentWinners(winnerNames);
     setShowWinnerReveal(true);
 
-    // Save winners to database
+    // Save winners to database with individual prizes
     const event = events.find(e => e.active);
     if (event) {
-      for (const winnerName of winnerNames) {
+      for (let i = 0; i < winnerNames.length; i++) {
+        const winnerName = winnerNames[i];
         const customer = customers.find(c => c.name === winnerName);
         if (customer) {
+          let prizeDescription = '';
+          switch (i) {
+            case 0: prizeDescription = currentPrizes.first; break;
+            case 1: prizeDescription = currentPrizes.second; break;
+            case 2: prizeDescription = currentPrizes.third; break;
+            default: prizeDescription = 'Participation Prize';
+          }
+          
           await supabase.from('winners').insert({
             customer_id: customer.id,
             event_id: event.id,
-            prize_description: currentPrize
+            prize_description: prizeDescription
           });
         }
       }
@@ -150,7 +173,12 @@ const Index = () => {
     setShowWinnerReveal(false);
     setIsDrawing(false);
     setCurrentWinners([]);
-    setCurrentPrize('');
+    setCurrentPrizes({ first: '', second: '', third: '' });
+  };
+
+  const goBackToDraw = () => {
+    setShowWinnerReveal(false);
+    setShowCrystalBalls(true);
   };
 
   const renderCurrentPage = () => {
@@ -217,6 +245,14 @@ const Index = () => {
       {renderCurrentPage()}
       <LotteryFooter />
       
+      {showUserCountdown && (
+        <DrawCountdown
+          duration={countdownDuration}
+          onComplete={() => setShowUserCountdown(false)}
+          onCancel={() => setShowUserCountdown(false)}
+        />
+      )}
+      
       {showCrystalBalls && (
         <CrystalBallAnimation
           winnersCount={events.find(e => e.active)?.winners_count || 3}
@@ -228,8 +264,9 @@ const Index = () => {
       {showWinnerReveal && (
         <WinnerReveal
           winners={currentWinners}
-          prizeDescription={currentPrize}
+          prizes={currentPrizes}
           onClose={closeWinnerReveal}
+          onBack={goBackToDraw}
         />
       )}
     </div>

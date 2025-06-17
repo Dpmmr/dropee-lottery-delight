@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Plus, Trash2, Play, Users, Trophy, BarChart3, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,7 +13,7 @@ interface AdminPageProps {
   winners: Winner[];
   draws: Draw[];
   externalLinks: ExternalLink[];
-  conductDraw: (eventId: string, prizeDescription: string) => void;
+  conductDraw: (eventId: string, prizeDescription: string, prizes: { first: string, second: string, third: string }) => void;
   isDrawing: boolean;
   setIsAdmin: (isAdmin: boolean) => void;
   setCurrentPage: (page: string) => void;
@@ -35,35 +36,47 @@ const AdminPage: React.FC<AdminPageProps> = ({
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
   const [newEvent, setNewEvent] = useState({ name: '', winners_count: 3, event_date: '', active: false });
   const [newLink, setNewLink] = useState({ name: '', url: '' });
-  const [selectedPrize, setSelectedPrize] = useState('Free Delivery for 3 Days');
+  const [prizes, setPrizes] = useState({
+    first: 'Free Delivery for 7 Days',
+    second: 'Free Delivery for 3 Days', 
+    third: '10% Discount Next Order'
+  });
   const [showCountdown, setShowCountdown] = useState(false);
   const [countdownDuration, setCountdownDuration] = useState(10);
-  const [pendingDrawData, setPendingDrawData] = useState<{eventId: string, prize: string} | null>(null);
+  const [pendingDrawData, setPendingDrawData] = useState<{eventId: string, prizes: any} | null>(null);
 
   const addCustomer = async () => {
     if (newCustomer.name && newCustomer.phone && newCustomer.email) {
-      await supabase.from('customers').insert(newCustomer);
-      setNewCustomer({ name: '', phone: '', email: '' });
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      const { error } = await supabase.from('customers').insert(newCustomer);
+      if (!error) {
+        setNewCustomer({ name: '', phone: '', email: '' });
+        queryClient.invalidateQueries({ queryKey: ['customers'] });
+      }
     }
   };
 
   const deleteCustomer = async (id: string) => {
-    await supabase.from('customers').delete().eq('id', id);
-    queryClient.invalidateQueries({ queryKey: ['customers'] });
+    const { error } = await supabase.from('customers').delete().eq('id', id);
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    }
   };
 
   const addEvent = async () => {
     if (newEvent.name && newEvent.winners_count && newEvent.event_date) {
-      await supabase.from('events').insert(newEvent);
-      setNewEvent({ name: '', winners_count: 3, event_date: '', active: false });
-      queryClient.invalidateQueries({ queryKey: ['events'] });
+      const { error } = await supabase.from('events').insert(newEvent);
+      if (!error) {
+        setNewEvent({ name: '', winners_count: 3, event_date: '', active: false });
+        queryClient.invalidateQueries({ queryKey: ['events'] });
+      }
     }
   };
 
   const deleteEvent = async (id: string) => {
-    await supabase.from('events').delete().eq('id', id);
-    queryClient.invalidateQueries({ queryKey: ['events'] });
+    const { error } = await supabase.from('events').delete().eq('id', id);
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    }
   };
 
   const toggleEventActive = async (id: string, active: boolean) => {
@@ -78,26 +91,30 @@ const AdminPage: React.FC<AdminPageProps> = ({
 
   const addLink = async () => {
     if (newLink.name && newLink.url) {
-      await supabase.from('external_links').insert(newLink);
-      setNewLink({ name: '', url: '' });
-      queryClient.invalidateQueries({ queryKey: ['external_links'] });
+      const { error } = await supabase.from('external_links').insert(newLink);
+      if (!error) {
+        setNewLink({ name: '', url: '' });
+        queryClient.invalidateQueries({ queryKey: ['external_links'] });
+      }
     }
   };
 
   const deleteLink = async (id: string) => {
-    await supabase.from('external_links').delete().eq('id', id);
-    queryClient.invalidateQueries({ queryKey: ['external_links'] });
+    const { error } = await supabase.from('external_links').delete().eq('id', id);
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['external_links'] });
+    }
   };
 
-  const startCountdownDraw = (eventId: string, prizeDescription: string) => {
-    setPendingDrawData({ eventId, prize: prizeDescription });
+  const startCountdownDraw = (eventId: string) => {
+    setPendingDrawData({ eventId, prizes });
     setShowCountdown(true);
   };
 
   const handleCountdownComplete = () => {
     setShowCountdown(false);
     if (pendingDrawData) {
-      conductDraw(pendingDrawData.eventId, pendingDrawData.prize);
+      conductDraw(pendingDrawData.eventId, 'Custom Prize Draw', pendingDrawData.prizes);
       setPendingDrawData(null);
     }
   };
@@ -106,16 +123,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
     setShowCountdown(false);
     setPendingDrawData(null);
   };
-
-  const prizeOptions = [
-    'Free Delivery for 3 Days',
-    'Free Delivery for 7 Days',
-    '10% Discount Next Order',
-    '20% Discount Next Order',
-    'Free Item of Choice',
-    'Cash Prize ₹500',
-    'Cash Prize ₹1000'
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900 text-white">
@@ -226,9 +233,43 @@ const AdminPage: React.FC<AdminPageProps> = ({
             </div>
           </div>
 
-          {/* Events Management */}
+          {/* Events Management & Prize Configuration */}
           <div className="bg-gradient-to-br from-cyan-600 to-blue-600 rounded-3xl p-4 md:p-6 shadow-2xl">
             <h3 className="text-xl md:text-2xl font-bold mb-4">🎯 Events & Draws</h3>
+            
+            {/* Prize Configuration */}
+            <div className="bg-white/10 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
+              <h4 className="text-lg font-semibold mb-3">🏆 Prize Configuration</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">🥇 First Prize:</label>
+                  <input
+                    type="text"
+                    value={prizes.first}
+                    onChange={(e) => setPrizes({...prizes, first: e.target.value})}
+                    className="w-full px-3 py-2 bg-white/20 rounded border border-white/30 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">🥈 Second Prize:</label>
+                  <input
+                    type="text"
+                    value={prizes.second}
+                    onChange={(e) => setPrizes({...prizes, second: e.target.value})}
+                    className="w-full px-3 py-2 bg-white/20 rounded border border-white/30 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">🥉 Third Prize:</label>
+                  <input
+                    type="text"
+                    value={prizes.third}
+                    onChange={(e) => setPrizes({...prizes, third: e.target.value})}
+                    className="w-full px-3 py-2 bg-white/20 rounded border border-white/30 text-white text-sm"
+                  />
+                </div>
+              </div>
+            </div>
             
             {/* Countdown Controls */}
             <div className="bg-white/10 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
@@ -279,20 +320,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
               </button>
             </div>
 
-            {/* Prize Selection */}
-            <div className="mb-4 md:mb-6">
-              <label className="block text-sm font-medium mb-2">Select Prize:</label>
-              <select
-                value={selectedPrize}
-                onChange={(e) => setSelectedPrize(e.target.value)}
-                className="w-full px-3 md:px-4 py-2 bg-white/20 rounded-lg border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm md:text-base"
-              >
-                {prizeOptions.map(prize => (
-                  <option key={prize} value={prize} className="bg-gray-800">{prize}</option>
-                ))}
-              </select>
-            </div>
-
             <div className="space-y-2">
               {events.map(event => (
                 <div key={event.id} className="bg-white/20 p-3 md:p-4 rounded-lg">
@@ -317,7 +344,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                   {event.active && (
                     <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
                       <button
-                        onClick={() => conductDraw(event.id, selectedPrize)}
+                        onClick={() => conductDraw(event.id, 'Manual Draw', prizes)}
                         disabled={isDrawing || customers.length === 0}
                         className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
                       >
@@ -325,7 +352,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                         <span>Start Now</span>
                       </button>
                       <button
-                        onClick={() => startCountdownDraw(event.id, selectedPrize)}
+                        onClick={() => startCountdownDraw(event.id)}
                         disabled={isDrawing || customers.length === 0}
                         className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
                       >
