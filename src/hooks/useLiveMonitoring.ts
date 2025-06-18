@@ -60,23 +60,31 @@ export const useLiveMonitoring = () => {
       countActiveSessions();
     }, 30000);
 
-    // Listen to realtime changes - create channel only once
+    // Create and subscribe to realtime channel only if not already created
     if (!channelRef.current) {
       channelRef.current = supabase
-        .channel('user-sessions-' + sessionId)
+        .channel(`user-sessions-${sessionId}`)
         .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'user_sessions' },
-          () => countActiveSessions()
-        );
-      
-      channelRef.current.subscribe();
+          () => {
+            // Use setTimeout to prevent blocking the callback
+            setTimeout(() => countActiveSessions(), 0);
+          }
+        )
+        .subscribe((status) => {
+          console.log('Channel subscription status:', status);
+        });
     }
 
+    // Cleanup function
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
+      
       if (channelRef.current) {
+        console.log('Cleaning up channel subscription');
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import LotteryHeader from '../components/LotteryHeader';
@@ -28,13 +28,20 @@ const Index = () => {
   const [countdownDuration, setCountdownDuration] = useState(10);
 
   const queryClient = useQueryClient();
+  const countdownChannelRef = useRef<any>(null);
 
   // Listen for countdown broadcasts from admin
   useEffect(() => {
     if (!isAdmin) {
       console.log('Setting up countdown listener for users');
       
-      const channel = supabase
+      // Clean up existing channel first
+      if (countdownChannelRef.current) {
+        supabase.removeChannel(countdownChannelRef.current);
+        countdownChannelRef.current = null;
+      }
+      
+      countdownChannelRef.current = supabase
         .channel('lottery-countdown')
         .on('broadcast', { event: 'countdown-start' }, (payload) => {
           console.log('Received countdown broadcast:', payload);
@@ -50,7 +57,10 @@ const Index = () => {
 
       return () => {
         console.log('Cleaning up user countdown channel');
-        supabase.removeChannel(channel);
+        if (countdownChannelRef.current) {
+          supabase.removeChannel(countdownChannelRef.current);
+          countdownChannelRef.current = null;
+        }
       };
     }
   }, [isAdmin]);
