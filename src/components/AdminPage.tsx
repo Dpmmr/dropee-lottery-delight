@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Play, Users, Trophy, BarChart3, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -127,74 +126,65 @@ const AdminPage: React.FC<AdminPageProps> = ({
   };
 
   const deleteEvent = async (id: string) => {
-    const eventHasData = winners.some(w => w.event_id === id) || draws.some(d => d.event_id === id);
-    
-    if (eventHasData) {
-      const confirmCascade = confirm(
-        'This event has associated winner records and draws. Do you want to delete everything including all winners and draws? This action cannot be undone.'
-      );
+    try {
+      // Check if event has associated data
+      const eventHasWinners = winners.some(w => w.event_id === id);
+      const eventHasDraws = draws.some(d => d.event_id === id);
       
-      if (!confirmCascade) {
-        return;
-      }
+      if (eventHasWinners || eventHasDraws) {
+        const confirmCascade = confirm(
+          'This event has associated winner records and/or draws. Do you want to delete everything including all winners and draws? This action cannot be undone.'
+        );
+        
+        if (!confirmCascade) {
+          return;
+        }
 
-      try {
         // Delete in proper order due to foreign key constraints
-        console.log('Deleting winners for event:', id);
-        const { error: winnersError } = await supabase
-          .from('winners')
-          .delete()
-          .eq('event_id', id);
+        if (eventHasWinners) {
+          const { error: winnersError } = await supabase
+            .from('winners')
+            .delete()
+            .eq('event_id', id);
 
-        if (winnersError) {
-          console.error('Error deleting winners:', winnersError);
-          alert('Error deleting winner records: ' + winnersError.message);
-          return;
+          if (winnersError) {
+            console.error('Error deleting winners:', winnersError);
+            alert('Error deleting winner records: ' + winnersError.message);
+            return;
+          }
         }
 
-        console.log('Deleting draws for event:', id);
-        const { error: drawsError } = await supabase
-          .from('draws')
-          .delete()
-          .eq('event_id', id);
+        if (eventHasDraws) {
+          const { error: drawsError } = await supabase
+            .from('draws')
+            .delete()
+            .eq('event_id', id);
 
-        if (drawsError) {
-          console.error('Error deleting draws:', drawsError);
-          alert('Error deleting draw records: ' + drawsError.message);
-          return;
+          if (drawsError) {
+            console.error('Error deleting draws:', drawsError);
+            alert('Error deleting draw records: ' + drawsError.message);
+            return;
+          }
         }
-
-        console.log('Deleting event:', id);
-        const { error: eventError } = await supabase
-          .from('events')
-          .delete()
-          .eq('id', id);
-
-        if (eventError) {
-          console.error('Error deleting event:', eventError);
-          alert('Error deleting event: ' + eventError.message);
-        } else {
-          queryClient.invalidateQueries({ queryKey: ['events'] });
-          queryClient.invalidateQueries({ queryKey: ['winners'] });
-          queryClient.invalidateQueries({ queryKey: ['draws'] });
-        }
-      } catch (err) {
-        console.error('Unexpected error:', err);
-        alert('Unexpected error occurred while deleting event');
       }
-    } else {
-      try {
-        const { error } = await supabase.from('events').delete().eq('id', id);
-        if (error) {
-          console.error('Error deleting event:', error);
-          alert('Error deleting event: ' + error.message);
-        } else {
-          queryClient.invalidateQueries({ queryKey: ['events'] });
-        }
-      } catch (err) {
-        console.error('Unexpected error:', err);
-        alert('Unexpected error occurred');
+
+      // Delete the event
+      const { error: eventError } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', id);
+
+      if (eventError) {
+        console.error('Error deleting event:', eventError);
+        alert('Error deleting event: ' + eventError.message);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['events'] });
+        queryClient.invalidateQueries({ queryKey: ['winners'] });
+        queryClient.invalidateQueries({ queryKey: ['draws'] });
       }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      alert('Unexpected error occurred while deleting event');
     }
   };
 
@@ -249,22 +239,27 @@ const AdminPage: React.FC<AdminPageProps> = ({
   const startCountdownDraw = async (eventId: string) => {
     console.log('Starting countdown draw for event:', eventId);
     
-    // Start admin countdown (no popup for admin)
+    // Start admin countdown (shows in button)
     setAdminCountdown({ eventId, timeLeft: countdownDuration });
     
-    // Create and subscribe to channel first, then broadcast
+    // Broadcast to users
     try {
-      const channel = supabase.channel('lottery-countdown-broadcast', {
+      // Create channel with retry mechanism
+      const channelName = `lottery-countdown-${Date.now()}`;
+      const channel = supabase.channel(channelName, {
         config: {
-          broadcast: { self: true }
+          broadcast: { self: false, ack: true }
         }
       });
 
-      // Subscribe to the channel first
-      await new Promise((resolve, reject) => {
+      // Subscribe and wait for confirmation
+      const subscriptionPromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Subscription timeout')), 5000);
+        
         channel.subscribe((status, err) => {
+          clearTimeout(timeout);
           if (status === 'SUBSCRIBED') {
-            console.log('Channel subscribed successfully');
+            console.log('Channel subscribed successfully:', channelName);
             resolve(status);
           } else if (status === 'CHANNEL_ERROR') {
             console.error('Channel subscription error:', err);
@@ -273,27 +268,35 @@ const AdminPage: React.FC<AdminPageProps> = ({
         });
       });
 
+      await subscriptionPromise;
+
       // Now broadcast the countdown
+      const broadcastPayload = {
+        eventId, 
+        duration: countdownDuration,
+        prizes: prizes.slice(0, events.find(e => e.id === eventId)?.winners_count || 3),
+        timestamp: Date.now()
+      };
+
+      console.log('Broadcasting countdown:', broadcastPayload);
+      
       const broadcastResult = await channel.send({
         type: 'broadcast',
         event: 'countdown-start',
-        payload: { 
-          eventId, 
-          duration: countdownDuration,
-          prizes: prizes.slice(0, events.find(e => e.id === eventId)?.winners_count || 3)
-        }
+        payload: broadcastPayload
       });
 
       console.log('Broadcast result:', broadcastResult);
 
-      // Clean up the channel after a delay
+      // Clean up channel after countdown + buffer time
       setTimeout(() => {
         supabase.removeChannel(channel);
-      }, (countdownDuration + 5) * 1000);
+        console.log('Channel removed:', channelName);
+      }, (countdownDuration + 10) * 1000);
 
     } catch (err) {
       console.error('Error setting up countdown broadcast:', err);
-      alert('Error starting countdown broadcast. The draw will still proceed.');
+      // Continue with admin countdown even if broadcast fails
     }
   };
 
@@ -330,9 +333,8 @@ const AdminPage: React.FC<AdminPageProps> = ({
           <button
             onClick={() => {setIsAdmin(false); setCurrentPage('home');}}
             className="bg-red-500 hover:bg-red-600 px-3 md:px-4 py-2 rounded-lg transition-colors text-sm md:text-base"
-            disabled={adminCountdown !== null}
           >
-            {adminCountdown ? `Logout (${adminCountdown.timeLeft}s)` : 'Logout'}
+            Logout
           </button>
         </div>
 
@@ -546,7 +548,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                     <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
                       <button
                         onClick={() => conductDraw(event.id, 'Manual Draw', prizes)}
-                        disabled={isDrawing || customers.length === 0 || adminCountdown !== null}
+                        disabled={isDrawing || customers.length === 0}
                         className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
                       >
                         <Play className="w-3 h-3 md:w-4 md:h-4" />
@@ -554,7 +556,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                       </button>
                       <button
                         onClick={() => startCountdownDraw(event.id)}
-                        disabled={isDrawing || customers.length === 0 || adminCountdown !== null}
+                        disabled={isDrawing || customers.length === 0}
                         className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
                       >
                         <Clock className="w-3 h-3 md:w-4 md:h-4" />
