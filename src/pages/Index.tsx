@@ -29,17 +29,12 @@ const Index = () => {
 
   const queryClient = useQueryClient();
   const countdownChannelRef = useRef<any>(null);
+  const isSubscribedRef = useRef(false);
 
   // Listen for countdown broadcasts from admin
   useEffect(() => {
-    if (!isAdmin) {
+    if (!isAdmin && !isSubscribedRef.current) {
       console.log('Setting up countdown listener for users');
-      
-      // Clean up existing channel first
-      if (countdownChannelRef.current) {
-        supabase.removeChannel(countdownChannelRef.current);
-        countdownChannelRef.current = null;
-      }
       
       countdownChannelRef.current = supabase
         .channel('lottery-countdown')
@@ -53,19 +48,35 @@ const Index = () => {
         })
         .subscribe((status) => {
           console.log('User countdown channel status:', status);
+          if (status === 'SUBSCRIBED') {
+            isSubscribedRef.current = true;
+          }
         });
-
-      return () => {
-        console.log('Cleaning up user countdown channel');
-        if (countdownChannelRef.current) {
-          supabase.removeChannel(countdownChannelRef.current);
-          countdownChannelRef.current = null;
-        }
-      };
     }
+
+    // Cleanup when becoming admin or component unmounts
+    return () => {
+      if (isAdmin && countdownChannelRef.current && isSubscribedRef.current) {
+        console.log('Cleaning up user countdown channel (becoming admin)');
+        supabase.removeChannel(countdownChannelRef.current);
+        countdownChannelRef.current = null;
+        isSubscribedRef.current = false;
+      }
+    };
   }, [isAdmin]);
 
-  // Fetch data from Supabase with reduced frequency for 3G optimization
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (countdownChannelRef.current && isSubscribedRef.current) {
+        console.log('Cleaning up countdown channel on unmount');
+        supabase.removeChannel(countdownChannelRef.current);
+        countdownChannelRef.current = null;
+        isSubscribedRef.current = false;
+      }
+    };
+  }, []);
+
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
     queryFn: async () => {
