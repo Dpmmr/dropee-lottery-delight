@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,17 +29,13 @@ const Index = () => {
 
   const queryClient = useQueryClient();
 
-  // Listen for countdown broadcasts from admin with improved error handling
+  // Listen for countdown broadcasts from admin
   useEffect(() => {
     if (!isAdmin) {
       console.log('Setting up countdown listener for users');
       
       const channel = supabase
-        .channel('lottery-countdown-user', {
-          config: {
-            broadcast: { self: false }
-          }
-        })
+        .channel('lottery-countdown')
         .on('broadcast', { event: 'countdown-start' }, (payload) => {
           console.log('Received countdown broadcast:', payload);
           if (payload.payload) {
@@ -49,11 +44,8 @@ const Index = () => {
             setShowUserCountdown(true);
           }
         })
-        .subscribe((status, err) => {
+        .subscribe((status) => {
           console.log('User countdown channel status:', status);
-          if (err) {
-            console.error('User countdown channel error:', err);
-          }
         });
 
       return () => {
@@ -202,7 +194,7 @@ const Index = () => {
   const handleUserCountdownComplete = () => {
     console.log('User countdown completed');
     setShowUserCountdown(false);
-    // The admin countdown will trigger the actual draw
+    setShowCrystalBalls(true);
   };
 
   const renderCurrentPage = () => {

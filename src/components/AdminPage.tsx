@@ -239,38 +239,11 @@ const AdminPage: React.FC<AdminPageProps> = ({
   const startCountdownDraw = async (eventId: string) => {
     console.log('Starting countdown draw for event:', eventId);
     
-    // Start admin countdown (shows in button)
+    // Start admin countdown
     setAdminCountdown({ eventId, timeLeft: countdownDuration });
     
-    // Broadcast to users
+    // Broadcast to users with simplified approach
     try {
-      // Create channel with retry mechanism
-      const channelName = `lottery-countdown-${Date.now()}`;
-      const channel = supabase.channel(channelName, {
-        config: {
-          broadcast: { self: false, ack: true }
-        }
-      });
-
-      // Subscribe and wait for confirmation
-      const subscriptionPromise = new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Subscription timeout')), 5000);
-        
-        channel.subscribe((status, err) => {
-          clearTimeout(timeout);
-          if (status === 'SUBSCRIBED') {
-            console.log('Channel subscribed successfully:', channelName);
-            resolve(status);
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('Channel subscription error:', err);
-            reject(err);
-          }
-        });
-      });
-
-      await subscriptionPromise;
-
-      // Now broadcast the countdown
       const broadcastPayload = {
         eventId, 
         duration: countdownDuration,
@@ -280,23 +253,27 @@ const AdminPage: React.FC<AdminPageProps> = ({
 
       console.log('Broadcasting countdown:', broadcastPayload);
       
-      const broadcastResult = await channel.send({
+      // Create a simple broadcast channel
+      const channel = supabase.channel('lottery-countdown');
+      
+      await channel.subscribe();
+      
+      // Send the broadcast
+      await channel.send({
         type: 'broadcast',
         event: 'countdown-start',
         payload: broadcastPayload
       });
 
-      console.log('Broadcast result:', broadcastResult);
+      console.log('Countdown broadcast sent successfully');
 
-      // Clean up channel after countdown + buffer time
+      // Clean up channel after a delay
       setTimeout(() => {
         supabase.removeChannel(channel);
-        console.log('Channel removed:', channelName);
-      }, (countdownDuration + 10) * 1000);
+      }, (countdownDuration + 5) * 1000);
 
     } catch (err) {
-      console.error('Error setting up countdown broadcast:', err);
-      // Continue with admin countdown even if broadcast fails
+      console.error('Error broadcasting countdown:', err);
     }
   };
 
