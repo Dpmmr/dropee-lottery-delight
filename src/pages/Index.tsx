@@ -29,11 +29,11 @@ const Index = () => {
 
   const queryClient = useQueryClient();
   const countdownChannelRef = useRef<any>(null);
-  const isSubscribedRef = useRef(false);
+  const isCountdownSubscribedRef = useRef(false);
 
-  // Listen for countdown broadcasts from admin
+  // Listen for countdown broadcasts from admin (only for non-admin users)
   useEffect(() => {
-    if (!isAdmin && !isSubscribedRef.current) {
+    if (!isAdmin && !isCountdownSubscribedRef.current) {
       console.log('Setting up countdown listener for users');
       
       countdownChannelRef.current = supabase
@@ -49,18 +49,20 @@ const Index = () => {
         .subscribe((status) => {
           console.log('User countdown channel status:', status);
           if (status === 'SUBSCRIBED') {
-            isSubscribedRef.current = true;
+            isCountdownSubscribedRef.current = true;
+          } else if (status === 'CLOSED') {
+            isCountdownSubscribedRef.current = false;
           }
         });
     }
 
     // Cleanup when becoming admin or component unmounts
     return () => {
-      if (isAdmin && countdownChannelRef.current && isSubscribedRef.current) {
+      if (isAdmin && countdownChannelRef.current && isCountdownSubscribedRef.current) {
         console.log('Cleaning up user countdown channel (becoming admin)');
         supabase.removeChannel(countdownChannelRef.current);
         countdownChannelRef.current = null;
-        isSubscribedRef.current = false;
+        isCountdownSubscribedRef.current = false;
       }
     };
   }, [isAdmin]);
@@ -68,11 +70,11 @@ const Index = () => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (countdownChannelRef.current && isSubscribedRef.current) {
+      if (countdownChannelRef.current && isCountdownSubscribedRef.current) {
         console.log('Cleaning up countdown channel on unmount');
         supabase.removeChannel(countdownChannelRef.current);
         countdownChannelRef.current = null;
-        isSubscribedRef.current = false;
+        isCountdownSubscribedRef.current = false;
       }
     };
   }, []);
