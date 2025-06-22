@@ -242,7 +242,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
     // Start admin countdown
     setAdminCountdown({ eventId, timeLeft: countdownDuration });
     
-    // Broadcast to users with simplified approach
+    // Broadcast to users with better channel setup
     try {
       const broadcastPayload = {
         eventId, 
@@ -251,26 +251,33 @@ const AdminPage: React.FC<AdminPageProps> = ({
         timestamp: Date.now()
       };
 
-      console.log('Broadcasting countdown:', broadcastPayload);
+      console.log('Broadcasting countdown to users:', broadcastPayload);
       
-      // Create a simple broadcast channel
-      const channel = supabase.channel('lottery-countdown');
+      // Use a more reliable broadcast channel setup
+      const channel = supabase.channel('lottery-countdown-public', {
+        config: {
+          broadcast: { self: false, ack: true }
+        }
+      });
       
+      // Subscribe first, then send
       await channel.subscribe();
       
-      // Send the broadcast
-      await channel.send({
-        type: 'broadcast',
-        event: 'countdown-start',
-        payload: broadcastPayload
-      });
-
-      console.log('Countdown broadcast sent successfully');
-
-      // Clean up channel after a delay
-      setTimeout(() => {
-        supabase.removeChannel(channel);
-      }, (countdownDuration + 5) * 1000);
+      // Wait a moment for subscription to be established
+      setTimeout(async () => {
+        const result = await channel.send({
+          type: 'broadcast',
+          event: 'countdown-start',
+          payload: broadcastPayload
+        });
+        
+        console.log('Broadcast result:', result);
+        
+        // Clean up channel after broadcast
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+        }, (countdownDuration + 5) * 1000);
+      }, 500);
 
     } catch (err) {
       console.error('Error broadcasting countdown:', err);

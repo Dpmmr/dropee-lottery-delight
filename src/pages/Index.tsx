@@ -29,52 +29,56 @@ const Index = () => {
 
   const queryClient = useQueryClient();
   const countdownChannelRef = useRef<any>(null);
-  const isCountdownSubscribedRef = useRef(false);
 
   // Listen for countdown broadcasts from admin (only for non-admin users)
   useEffect(() => {
-    if (!isAdmin && !isCountdownSubscribedRef.current) {
+    if (!isAdmin) {
       console.log('Setting up countdown listener for users');
       
-      countdownChannelRef.current = supabase
-        .channel('lottery-countdown')
-        .on('broadcast', { event: 'countdown-start' }, (payload) => {
-          console.log('Received countdown broadcast:', payload);
-          if (payload.payload) {
-            setCountdownDuration(payload.payload.duration || 10);
-            setCurrentPrizes(payload.payload.prizes || []);
-            setShowUserCountdown(true);
-          }
-        })
-        .subscribe((status) => {
-          console.log('User countdown channel status:', status);
-          if (status === 'SUBSCRIBED') {
-            isCountdownSubscribedRef.current = true;
-          } else if (status === 'CLOSED') {
-            isCountdownSubscribedRef.current = false;
-          }
-        });
-    }
+      const setupCountdownListener = async () => {
+        // Remove any existing channel first
+        if (countdownChannelRef.current) {
+          supabase.removeChannel(countdownChannelRef.current);
+        }
 
-    // Cleanup when becoming admin or component unmounts
-    return () => {
-      if (isAdmin && countdownChannelRef.current && isCountdownSubscribedRef.current) {
-        console.log('Cleaning up user countdown channel (becoming admin)');
-        supabase.removeChannel(countdownChannelRef.current);
-        countdownChannelRef.current = null;
-        isCountdownSubscribedRef.current = false;
-      }
-    };
+        countdownChannelRef.current = supabase
+          .channel('lottery-countdown-public', {
+            config: {
+              broadcast: { self: false }
+            }
+          })
+          .on('broadcast', { event: 'countdown-start' }, (payload) => {
+            console.log('User received countdown broadcast:', payload);
+            if (payload.payload) {
+              setCountdownDuration(payload.payload.duration || 10);
+              setCurrentPrizes(payload.payload.prizes || []);
+              setShowUserCountdown(true);
+            }
+          })
+          .subscribe((status) => {
+            console.log('User countdown channel status:', status);
+          });
+      };
+
+      setupCountdownListener();
+
+      return () => {
+        if (countdownChannelRef.current) {
+          console.log('Cleaning up user countdown channel');
+          supabase.removeChannel(countdownChannelRef.current);
+          countdownChannelRef.current = null;
+        }
+      };
+    }
   }, [isAdmin]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (countdownChannelRef.current && isCountdownSubscribedRef.current) {
+      if (countdownChannelRef.current) {
         console.log('Cleaning up countdown channel on unmount');
         supabase.removeChannel(countdownChannelRef.current);
         countdownChannelRef.current = null;
-        isCountdownSubscribedRef.current = false;
       }
     };
   }, []);
@@ -215,7 +219,7 @@ const Index = () => {
   };
 
   const handleUserCountdownComplete = () => {
-    console.log('User countdown completed');
+    console.log('User countdown completed, starting crystal balls animation');
     setShowUserCountdown(false);
     setShowCrystalBalls(true);
   };
