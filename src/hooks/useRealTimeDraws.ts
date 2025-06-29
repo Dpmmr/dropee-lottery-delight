@@ -1,25 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-interface LiveDraw {
-  id: string;
-  event_id: string;
-  status: 'waiting' | 'countdown' | 'drawing' | 'revealing' | 'completed';
-  countdown_duration: number;
-  prizes: string[];
-  current_winners: string[];
-  total_participants: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface DrawStatus {
-  id: string;
-  is_active: boolean;
-  current_draw_id: string | null;
-  updated_at: string;
-}
+import type { LiveDraw, DrawStatus } from '@/types/lottery';
 
 export const useRealTimeDraws = (isAdmin: boolean) => {
   const [activeDraw, setActiveDraw] = useState<LiveDraw | null>(null);
@@ -50,7 +32,7 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
               .single();
             
             if (drawData) {
-              setActiveDraw(drawData);
+              setActiveDraw(drawData as LiveDraw);
             }
           }
         }

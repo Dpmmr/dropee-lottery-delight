@@ -59,3 +59,15 @@ export interface DrawStatus {
   current_draw_id: string | null;
   updated_at: string;
 }
+
+export interface FooterContent {
+  id: string;
+  description: string;
+  updated_at: string;
+}
+
+export interface UserSession {
+  id: string;
+  session_id: string;
+  last_seen: string;
+}

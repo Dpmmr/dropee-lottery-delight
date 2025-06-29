@@ -163,14 +163,16 @@ const EnhancedDrawCountdown: React.FC<EnhancedDrawCountdownProps> = ({
 
         {/* Screen Shake Effect for Final Seconds */}
         {timeLeft <= 3 && (
-          <style jsx>{`
-            @keyframes screenShake {
-              0%, 100% { transform: translateX(0); }
-              25% { transform: translateX(-2px); }
-              75% { transform: translateX(2px); }
-            }
-            .fixed { animation: screenShake 0.5s infinite; }
-          `}</style>
+          <style>
+            {`
+              @keyframes screenShake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-2px); }
+                75% { transform: translateX(2px); }
+              }
+              .fixed { animation: screenShake 0.5s infinite; }
+            `}
+          </style>
         )}
       </div>
     </div>
