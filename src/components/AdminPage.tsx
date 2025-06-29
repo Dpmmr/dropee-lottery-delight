@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Play, Users, Trophy, BarChart3, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLiveMonitoring } from '@/hooks/useLiveMonitoring';
+import { useRealTimeDraws } from '@/hooks/useRealTimeDraws';
 import type { Customer, Event, Winner, Draw, ExternalLink } from '@/types/lottery';
 import { QueryClient } from '@tanstack/react-query';
 
@@ -31,26 +32,13 @@ const AdminPage: React.FC<AdminPageProps> = ({
   queryClient
 }) => {
   const { onlineUsers, peakUsers } = useLiveMonitoring();
+  const { activeDraw, startCountdownDraw, updateDrawStatus, completeDraw } = useRealTimeDraws(true);
+  
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
   const [newEvent, setNewEvent] = useState({ name: '', winners_count: 3, event_date: '', active: false });
   const [newLink, setNewLink] = useState({ name: '', url: '' });
   const [prizes, setPrizes] = useState(['Free Delivery for 7 Days', 'Free Delivery for 3 Days', '10% Discount Next Order']);
   const [countdownDuration, setCountdownDuration] = useState(10);
-  const [adminCountdown, setAdminCountdown] = useState<{eventId: string, timeLeft: number} | null>(null);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (adminCountdown && adminCountdown.timeLeft > 0) {
-      timer = setTimeout(() => {
-        setAdminCountdown(prev => prev ? {...prev, timeLeft: prev.timeLeft - 1} : null);
-      }, 1000);
-    } else if (adminCountdown && adminCountdown.timeLeft === 0) {
-      // Start the draw
-      conductDraw(adminCountdown.eventId, 'Countdown Draw', prizes);
-      setAdminCountdown(null);
-    }
-    return () => clearTimeout(timer);
-  }, [adminCountdown, conductDraw, prizes]);
 
   const addCustomer = async () => {
     if (newCustomer.name && newCustomer.phone && newCustomer.email) {
@@ -236,51 +224,32 @@ const AdminPage: React.FC<AdminPageProps> = ({
     }
   };
 
-  const startCountdownDraw = async (eventId: string) => {
-    console.log('Starting countdown draw for event:', eventId);
-    
-    // Start admin countdown
-    setAdminCountdown({ eventId, timeLeft: countdownDuration });
-    
-    // Broadcast to users with better channel setup
+  const handleEnhancedCountdownDraw = async (eventId: string) => {
     try {
-      const broadcastPayload = {
-        eventId, 
-        duration: countdownDuration,
-        prizes: prizes.slice(0, events.find(e => e.id === eventId)?.winners_count || 3),
-        timestamp: Date.now()
-      };
-
-      console.log('Broadcasting countdown to users:', broadcastPayload);
+      console.log('Starting enhanced countdown draw for event:', eventId);
       
-      // Use a more reliable broadcast channel setup
-      const channel = supabase.channel('lottery-countdown-public', {
-        config: {
-          broadcast: { self: false, ack: true }
-        }
-      });
-      
-      // Subscribe first, then send
-      await channel.subscribe();
-      
-      // Wait a moment for subscription to be established
-      setTimeout(async () => {
-        const result = await channel.send({
-          type: 'broadcast',
-          event: 'countdown-start',
-          payload: broadcastPayload
-        });
-        
-        console.log('Broadcast result:', result);
-        
-        // Clean up channel after broadcast
-        setTimeout(() => {
-          supabase.removeChannel(channel);
-        }, (countdownDuration + 5) * 1000);
-      }, 500);
-
+      if (startCountdownDraw) {
+        await startCountdownDraw(
+          eventId, 
+          prizes.slice(0, events.find(e => e.id === eventId)?.winners_count || 3),
+          countdownDuration,
+          customers.length
+        );
+      }
     } catch (err) {
-      console.error('Error broadcasting countdown:', err);
+      console.error('Error starting enhanced countdown draw:', err);
+      alert('Error starting draw: ' + err);
+    }
+  };
+
+  const handleStopDraw = async () => {
+    try {
+      if (activeDraw && completeDraw) {
+        await completeDraw(activeDraw.id);
+      }
+    } catch (err) {
+      console.error('Error stopping draw:', err);
+      alert('Error stopping draw: ' + err);
     }
   };
 
@@ -321,6 +290,25 @@ const AdminPage: React.FC<AdminPageProps> = ({
             Logout
           </button>
         </div>
+
+        {/* Live Draw Status */}
+        {activeDraw && (
+          <div className="bg-gradient-to-r from-green-600 to-teal-600 rounded-3xl p-4 md:p-6 mb-6 md:mb-8 shadow-2xl">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xl md:text-2xl font-bold mb-2">🔴 LIVE DRAW IN PROGRESS</h3>
+                <p className="text-white/90">Status: <span className="font-bold capitalize">{activeDraw.status}</span></p>
+                <p className="text-white/90">Participants: <span className="font-bold">{activeDraw.total_participants}</span></p>
+              </div>
+              <button
+                onClick={handleStopDraw}
+                className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition-colors"
+              >
+                Stop Draw
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Live Stats Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-6 md:mb-8">
@@ -418,7 +406,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
 
           {/* Events Management & Prize Configuration */}
           <div className="bg-gradient-to-br from-cyan-600 to-blue-600 rounded-3xl p-4 md:p-6 shadow-2xl">
-            <h3 className="text-xl md:text-2xl font-bold mb-4">🎯 Events & Draws</h3>
+            <h3 className="text-xl md:text-2xl font-bold mb-4">🎯 Events & Enhanced Draws</h3>
             
             {/* Prize Configuration */}
             <div className="bg-white/10 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
@@ -458,9 +446,9 @@ const AdminPage: React.FC<AdminPageProps> = ({
               </div>
             </div>
             
-            {/* Countdown Controls */}
+            {/* Enhanced Countdown Controls */}
             <div className="bg-white/10 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
-              <h4 className="text-lg font-semibold mb-2">Draw Countdown</h4>
+              <h4 className="text-lg font-semibold mb-2">⚡ Enhanced Draw Countdown</h4>
               <div className="flex items-center space-x-2 md:space-x-4">
                 <Clock className="w-4 h-4 md:w-5 md:h-5" />
                 <input
@@ -471,7 +459,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                   onChange={(e) => setCountdownDuration(parseInt(e.target.value))}
                   className="w-20 px-2 py-1 bg-white/20 rounded border border-white/30 text-white text-sm md:text-base"
                 />
-                <span className="text-sm md:text-base">seconds</span>
+                <span className="text-sm md:text-base">seconds with enhanced animations</span>
               </div>
             </div>
 
@@ -523,12 +511,12 @@ const AdminPage: React.FC<AdminPageProps> = ({
                         onClick={() => deleteEvent(event.id)}
                         className="text-red-400 hover:text-red-300"
                       >
-                        <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
+                        <Trash2 className="w-3 h-3 md:w-4 h-4" />
                       </button>
                     </div>
                   </div>
                   <p className="text-xs md:text-sm text-cyan-200 mb-2">{event.winners_count} winners • {event.event_date}</p>
-                  {event.active && (
+                  {event.active && !activeDraw && (
                     <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
                       <button
                         onClick={() => conductDraw(event.id, 'Manual Draw', prizes)}
@@ -536,19 +524,15 @@ const AdminPage: React.FC<AdminPageProps> = ({
                         className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
                       >
                         <Play className="w-3 h-3 md:w-4 md:h-4" />
-                        <span>Start Now</span>
+                        <span>Quick Start</span>
                       </button>
                       <button
-                        onClick={() => startCountdownDraw(event.id)}
+                        onClick={() => handleEnhancedCountdownDraw(event.id)}
                         disabled={isDrawing || customers.length === 0}
                         className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:bg-gray-500 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 text-xs md:text-sm"
                       >
                         <Clock className="w-3 h-3 md:w-4 md:h-4" />
-                        <span>
-                          {adminCountdown && adminCountdown.eventId === event.id 
-                            ? `${adminCountdown.timeLeft}s` 
-                            : 'Countdown'}
-                        </span>
+                        <span>Enhanced Draw</span>
                       </button>
                     </div>
                   )}

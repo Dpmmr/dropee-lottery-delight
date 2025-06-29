@@ -1,8 +1,9 @@
 
 import React from 'react';
-import DrawCountdown from './DrawCountdown';
-import CrystalBallAnimation from './CrystalBallAnimation';
-import WinnerReveal from './WinnerReveal';
+import EnhancedDrawCountdown from './EnhancedDrawCountdown';
+import EnhancedCrystalBallAnimation from './EnhancedCrystalBallAnimation';
+import EnhancedWinnerReveal from './EnhancedWinnerReveal';
+import { useRealTimeDraws } from '@/hooks/useRealTimeDraws';
 import type { Event } from '@/types/lottery';
 
 interface LotteryOverlaysProps {
@@ -19,6 +20,7 @@ interface LotteryOverlaysProps {
   currentPrizes: string[];
   onWinnerRevealClose: () => void;
   onWinnerRevealBack: () => void;
+  isAdmin: boolean;
 }
 
 const LotteryOverlays: React.FC<LotteryOverlaysProps> = ({
@@ -34,30 +36,44 @@ const LotteryOverlays: React.FC<LotteryOverlaysProps> = ({
   currentWinners,
   currentPrizes,
   onWinnerRevealClose,
-  onWinnerRevealBack
+  onWinnerRevealBack,
+  isAdmin
 }) => {
+  const { activeDraw } = useRealTimeDraws(isAdmin);
+
+  // Use real-time draw data when available, fallback to props
+  const shouldShowCountdown = activeDraw?.status === 'countdown' || showUserCountdown;
+  const shouldShowDrawing = activeDraw?.status === 'drawing' || showCrystalBalls;
+  const shouldShowRevealing = activeDraw?.status === 'revealing' || showWinnerReveal;
+
+  const drawPrizes = activeDraw?.prizes || currentPrizes;
+  const drawWinners = activeDraw?.current_winners || currentWinners;
+  const participantCount = activeDraw?.total_participants || participants.length;
+
   return (
     <>
-      {showUserCountdown && (
-        <DrawCountdown
-          duration={countdownDuration}
+      {shouldShowCountdown && (
+        <EnhancedDrawCountdown
+          duration={activeDraw?.countdown_duration || countdownDuration}
           onComplete={onCountdownComplete}
           onCancel={onCountdownCancel}
+          participantCount={participantCount}
+          prizes={drawPrizes}
         />
       )}
       
-      {showCrystalBalls && (
-        <CrystalBallAnimation
+      {shouldShowDrawing && (
+        <EnhancedCrystalBallAnimation
           winnersCount={events.find(e => e.active)?.winners_count || 3}
           onAnimationComplete={onAnimationComplete}
           participants={participants}
         />
       )}
       
-      {showWinnerReveal && (
-        <WinnerReveal
-          winners={currentWinners}
-          prizes={currentPrizes}
+      {shouldShowRevealing && (
+        <EnhancedWinnerReveal
+          winners={drawWinners}
+          prizes={drawPrizes}
           onClose={onWinnerRevealClose}
           onBack={onWinnerRevealBack}
         />

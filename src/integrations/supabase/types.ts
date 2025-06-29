@@ -33,6 +33,35 @@ export type Database = {
         }
         Relationships: []
       }
+      draw_status: {
+        Row: {
+          current_draw_id: string | null
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          current_draw_id?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          current_draw_id?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draw_status_current_draw_id_fkey"
+            columns: ["current_draw_id"]
+            isOneToOne: false
+            referencedRelation: "live_draws"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       draws: {
         Row: {
           conducted_at: string
@@ -127,6 +156,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      live_draws: {
+        Row: {
+          countdown_duration: number | null
+          created_at: string
+          current_winners: string[] | null
+          event_id: string
+          id: string
+          prizes: string[] | null
+          status: string
+          total_participants: number | null
+          updated_at: string
+        }
+        Insert: {
+          countdown_duration?: number | null
+          created_at?: string
+          current_winners?: string[] | null
+          event_id: string
+          id?: string
+          prizes?: string[] | null
+          status: string
+          total_participants?: number | null
+          updated_at?: string
+        }
+        Update: {
+          countdown_duration?: number | null
+          created_at?: string
+          current_winners?: string[] | null
+          event_id?: string
+          id?: string
+          prizes?: string[] | null
+          status?: string
+          total_participants?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_draws_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_sessions: {
         Row: {

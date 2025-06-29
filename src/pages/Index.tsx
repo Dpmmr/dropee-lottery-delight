@@ -6,7 +6,7 @@ import LiveUserMonitor from '../components/LiveUserMonitor';
 import LotteryOverlays from '../components/LotteryOverlays';
 import PageRenderer from '../components/PageRenderer';
 import { usePageState } from '../hooks/usePageState';
-import { useCountdown } from '../hooks/useCountdown';
+import { useRealTimeDraws } from '../hooks/useRealTimeDraws';
 import { useDrawLogic } from '../hooks/useDrawLogic';
 import { useLotteryData } from '../hooks/useLotteryData';
 
@@ -31,14 +31,7 @@ const Index = () => {
     externalLinks
   } = useLotteryData();
 
-  const {
-    showUserCountdown,
-    setShowUserCountdown,
-    countdownDuration,
-    currentPrizes,
-    setCurrentPrizes,
-    handleUserCountdownComplete
-  } = useCountdown(isAdmin);
+  const { activeDraw, updateDrawStatus, completeDraw } = useRealTimeDraws(isAdmin);
 
   const {
     isDrawing,
@@ -46,18 +39,39 @@ const Index = () => {
     setShowCrystalBalls,
     showWinnerReveal,
     currentWinners,
-    currentPrizes: drawCurrentPrizes,
+    currentPrizes,
     conductDraw,
     handleAnimationComplete,
     closeWinnerReveal,
     goBackToDraw
   } = useDrawLogic(customers, events);
 
-  const handleCountdownComplete = () => {
-    const shouldStartCrystalBalls = handleUserCountdownComplete();
-    if (shouldStartCrystalBalls) {
-      setShowCrystalBalls(true);
+  const handleCountdownComplete = async () => {
+    console.log('Countdown completed, starting crystal balls animation');
+    
+    if (activeDraw && updateDrawStatus) {
+      await updateDrawStatus(activeDraw.id, 'drawing');
     }
+    
+    setShowCrystalBalls(true);
+  };
+
+  const handleEnhancedAnimationComplete = async (winners: string[]) => {
+    console.log('Enhanced animation completed with winners:', winners);
+    
+    if (activeDraw && updateDrawStatus) {
+      await updateDrawStatus(activeDraw.id, 'revealing', winners);
+    }
+    
+    await handleAnimationComplete(winners);
+  };
+
+  const handleEnhancedWinnerRevealClose = async () => {
+    if (activeDraw && completeDraw) {
+      await completeDraw(activeDraw.id);
+    }
+    
+    closeWinnerReveal();
   };
 
   return (
@@ -87,19 +101,20 @@ const Index = () => {
       <LotteryFooter />
       
       <LotteryOverlays
-        showUserCountdown={showUserCountdown}
-        countdownDuration={countdownDuration}
+        showUserCountdown={false} // Now handled by real-time system
+        countdownDuration={10}
         onCountdownComplete={handleCountdownComplete}
-        onCountdownCancel={() => setShowUserCountdown(false)}
+        onCountdownCancel={() => {}} // Will be handled by admin controls
         showCrystalBalls={showCrystalBalls}
         events={events}
         participants={customers.map(c => c.name)}
-        onAnimationComplete={handleAnimationComplete}
+        onAnimationComplete={handleEnhancedAnimationComplete}
         showWinnerReveal={showWinnerReveal}
         currentWinners={currentWinners}
-        currentPrizes={drawCurrentPrizes}
-        onWinnerRevealClose={closeWinnerReveal}
+        currentPrizes={currentPrizes}
+        onWinnerRevealClose={handleEnhancedWinnerRevealClose}
         onWinnerRevealBack={goBackToDraw}
+        isAdmin={isAdmin}
       />
     </div>
   );

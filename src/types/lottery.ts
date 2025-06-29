@@ -41,14 +41,21 @@ export interface ExternalLink {
   created_at: string;
 }
 
-export interface FooterContent {
+export interface LiveDraw {
   id: string;
-  description: string;
+  event_id: string;
+  status: 'waiting' | 'countdown' | 'drawing' | 'revealing' | 'completed';
+  countdown_duration: number;
+  prizes: string[];
+  current_winners: string[];
+  total_participants: number;
+  created_at: string;
   updated_at: string;
 }
 
-export interface UserSession {
+export interface DrawStatus {
   id: string;
-  session_id: string;
-  last_seen: string;
+  is_active: boolean;
+  current_draw_id: string | null;
+  updated_at: string;
 }
