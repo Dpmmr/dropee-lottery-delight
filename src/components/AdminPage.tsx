@@ -33,6 +33,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
   queryClient
 }) => {
   const { onlineUsers, peakUsers } = useLiveMonitoring();
+  const { activeDraw, startCountdownDraw, completeDraw } = useRealTimeDraws(true);
   
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
   const [newEvent, setNewEvent] = useState({ name: '', winners_count: 3, event_date: '', active: false });
