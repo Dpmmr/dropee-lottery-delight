@@ -5,6 +5,7 @@ import { useLiveMonitoring } from '@/hooks/useLiveMonitoring';
 import { useRealTimeDraws } from '@/hooks/useRealTimeDraws';
 import type { Customer, Event, Winner, Draw, ExternalLink } from '@/types/lottery';
 import { QueryClient } from '@tanstack/react-query';
+import AdminDrawControls from './AdminDrawControls';
 
 interface AdminPageProps {
   customers: Customer[];
@@ -32,7 +33,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
   queryClient
 }) => {
   const { onlineUsers, peakUsers } = useLiveMonitoring();
-  const { activeDraw, startCountdownDraw, updateDrawStatus, completeDraw } = useRealTimeDraws(true);
   
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
   const [newEvent, setNewEvent] = useState({ name: '', winners_count: 3, event_date: '', active: false });
@@ -291,25 +291,6 @@ const AdminPage: React.FC<AdminPageProps> = ({
           </button>
         </div>
 
-        {/* Live Draw Status */}
-        {activeDraw && (
-          <div className="bg-gradient-to-r from-green-600 to-teal-600 rounded-3xl p-4 md:p-6 mb-6 md:mb-8 shadow-2xl">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xl md:text-2xl font-bold mb-2">🔴 LIVE DRAW IN PROGRESS</h3>
-                <p className="text-white/90">Status: <span className="font-bold capitalize">{activeDraw.status}</span></p>
-                <p className="text-white/90">Participants: <span className="font-bold">{activeDraw.total_participants}</span></p>
-              </div>
-              <button
-                onClick={handleStopDraw}
-                className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition-colors"
-              >
-                Stop Draw
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Live Stats Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-6 md:mb-8">
           <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-3 md:p-6">
@@ -351,6 +332,14 @@ const AdminPage: React.FC<AdminPageProps> = ({
         </div>
 
         <div className="space-y-6 md:space-y-8">
+          {/* Enhanced Draw Controls - New Section */}
+          <AdminDrawControls
+            customers={customers}
+            events={events}
+            prizes={prizes}
+            countdownDuration={countdownDuration}
+          />
+
           {/* Customers Management */}
           <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-3xl p-4 md:p-6 shadow-2xl">
             <h3 className="text-xl md:text-2xl font-bold mb-4">👥 Customers ({customers.length})</h3>
@@ -406,7 +395,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
 
           {/* Events Management & Prize Configuration */}
           <div className="bg-gradient-to-br from-cyan-600 to-blue-600 rounded-3xl p-4 md:p-6 shadow-2xl">
-            <h3 className="text-xl md:text-2xl font-bold mb-4">🎯 Events & Enhanced Draws</h3>
+            <h3 className="text-xl md:text-2xl font-bold mb-4">🎯 Events & Prize Configuration</h3>
             
             {/* Prize Configuration */}
             <div className="bg-white/10 rounded-lg p-3 md:p-4 mb-4 md:mb-6">

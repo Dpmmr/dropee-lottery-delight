@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { LiveDraw, DrawStatus } from '@/types/lottery';
 
@@ -7,81 +7,188 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
   const [activeDraw, setActiveDraw] = useState<LiveDraw | null>(null);
   const [drawStatus, setDrawStatus] = useState<DrawStatus | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  
+  // Refs to track subscriptions and prevent duplicates
+  const channelsRef = useRef<any[]>([]);
+  const isSubscribedRef = useRef(false);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    console.log('Setting up real-time draw listeners');
-
-    // Initial data fetch
-    const fetchInitialData = async () => {
+  const cleanup = () => {
+    console.log('Cleaning up real-time draw listeners');
+    
+    // Clear retry timeout
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    
+    // Remove all channels
+    channelsRef.current.forEach(channel => {
       try {
-        // Get current draw status
-        const { data: statusData } = await supabase
-          .from('draw_status')
-          .select('*')
-          .single();
-        
-        if (statusData) {
-          setDrawStatus(statusData);
+        supabase.removeChannel(channel);
+      } catch (error) {
+        console.log('Error removing channel:', error);
+      }
+    });
+    channelsRef.current = [];
+    isSubscribedRef.current = false;
+  };
 
-          // If there's an active draw, fetch it
-          if (statusData.is_active && statusData.current_draw_id) {
-            const { data: drawData } = await supabase
-              .from('live_draws')
-              .select('*')
-              .eq('id', statusData.current_draw_id)
-              .single();
-            
-            if (drawData) {
-              setActiveDraw(drawData as LiveDraw);
-            }
+  const setupSubscriptions = async () => {
+    if (isSubscribedRef.current) {
+      console.log('Already subscribed, skipping setup');
+      return;
+    }
+
+    try {
+      console.log('Setting up real-time draw listeners');
+      setConnectionError(null);
+
+      // Create unique channel names to prevent conflicts
+      const timestamp = Date.now();
+      const drawStatusChannelName = `draw-status-${timestamp}`;
+      const liveDrawsChannelName = `live-draws-${timestamp}`;
+
+      // Set up draw status subscription
+      const drawStatusChannel = supabase
+        .channel(drawStatusChannelName)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'draw_status'
+        }, (payload) => {
+          console.log('Draw status changed:', payload);
+          if (payload.new) {
+            setDrawStatus(payload.new as DrawStatus);
+          }
+        })
+        .subscribe((status) => {
+          console.log('Draw status channel status:', status);
+          if (status === 'SUBSCRIBED') {
+            setIsConnected(true);
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            setConnectionError('Draw status subscription failed');
+            scheduleRetry();
+          }
+        });
+
+      // Set up live draws subscription
+      const liveDrawsChannel = supabase
+        .channel(liveDrawsChannelName)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'live_draws'
+        }, (payload) => {
+          console.log('Live draw changed:', payload);
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            setActiveDraw(payload.new as LiveDraw);
+          } else if (payload.eventType === 'DELETE') {
+            setActiveDraw(null);
+          }
+        })
+        .subscribe((status) => {
+          console.log('Live draws channel status:', status);
+          if (status === 'SUBSCRIBED') {
+            setIsConnected(true);
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            setConnectionError('Live draws subscription failed');
+            scheduleRetry();
+          }
+        });
+
+      // Store channels for cleanup
+      channelsRef.current = [drawStatusChannel, liveDrawsChannel];
+      isSubscribedRef.current = true;
+
+    } catch (error) {
+      console.error('Error setting up subscriptions:', error);
+      setConnectionError('Failed to setup real-time subscriptions');
+      scheduleRetry();
+    }
+  };
+
+  const scheduleRetry = () => {
+    if (retryTimeoutRef.current) return;
+    
+    console.log('Scheduling subscription retry in 5 seconds');
+    retryTimeoutRef.current = setTimeout(() => {
+      cleanup();
+      retryTimeoutRef.current = null;
+      setupSubscriptions();
+    }, 5000);
+  };
+
+  const fetchInitialData = async () => {
+    try {
+      console.log('Fetching initial draw data');
+
+      // Get current draw status (use maybeSingle to handle no records)
+      const { data: statusData, error: statusError } = await supabase
+        .from('draw_status')
+        .select('*')
+        .maybeSingle();
+      
+      if (statusError) {
+        console.error('Error fetching draw status:', statusError);
+        setConnectionError('Failed to fetch draw status');
+        return;
+      }
+
+      if (statusData) {
+        console.log('Found draw status:', statusData);
+        setDrawStatus(statusData);
+
+        // If there's an active draw, fetch it
+        if (statusData.is_active && statusData.current_draw_id) {
+          const { data: drawData, error: drawError } = await supabase
+            .from('live_draws')
+            .select('*')
+            .eq('id', statusData.current_draw_id)
+            .maybeSingle();
+          
+          if (drawError) {
+            console.error('Error fetching active draw:', drawError);
+            setConnectionError('Failed to fetch active draw');
+          } else if (drawData) {
+            console.log('Found active draw:', drawData);
+            setActiveDraw(drawData as LiveDraw);
           }
         }
-        setIsConnected(true);
-      } catch (error) {
-        console.error('Error fetching initial draw data:', error);
-      }
-    };
+      } else {
+        console.log('No draw status found, creating default');
+        // Create default draw status if none exists
+        const { data: newStatus, error: createError } = await supabase
+          .from('draw_status')
+          .insert({ is_active: false, current_draw_id: null })
+          .select()
+          .single();
 
-    fetchInitialData();
-
-    // Set up real-time subscriptions
-    const drawStatusChannel = supabase
-      .channel('draw-status-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'draw_status'
-      }, (payload) => {
-        console.log('Draw status changed:', payload);
-        setDrawStatus(payload.new as DrawStatus);
-      })
-      .subscribe();
-
-    const liveDrawsChannel = supabase
-      .channel('live-draws-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'live_draws'
-      }, (payload) => {
-        console.log('Live draw changed:', payload);
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-          setActiveDraw(payload.new as LiveDraw);
-        } else if (payload.eventType === 'DELETE') {
-          setActiveDraw(null);
+        if (createError) {
+          console.error('Error creating default draw status:', createError);
+          setConnectionError('Failed to initialize draw status');
+        } else {
+          setDrawStatus(newStatus);
         }
-      })
-      .subscribe();
+      }
+    } catch (error) {
+      console.error('Error in fetchInitialData:', error);
+      setConnectionError('Failed to load initial data');
+    }
+  };
 
-    return () => {
-      console.log('Cleaning up real-time draw listeners');
-      supabase.removeChannel(drawStatusChannel);
-      supabase.removeChannel(liveDrawsChannel);
-    };
+  useEffect(() => {
+    fetchInitialData();
+    setupSubscriptions();
+
+    return cleanup;
   }, []);
 
   // Admin functions for managing draws
   const startCountdownDraw = async (eventId: string, prizes: string[], duration: number, participantCount: number) => {
+    if (!isAdmin) throw new Error('Admin access required');
+
     try {
       console.log('Starting countdown draw:', { eventId, prizes, duration, participantCount });
 
@@ -93,24 +200,26 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
           status: 'countdown',
           countdown_duration: duration,
           prizes,
-          total_participants: participantCount
+          total_participants: participantCount,
+          current_winners: []
         })
         .select()
         .single();
 
       if (drawError) throw drawError;
 
-      // Update draw status to active
+      // Update or create draw status
       const { error: statusError } = await supabase
         .from('draw_status')
-        .update({
+        .upsert({
+          id: drawStatus?.id || crypto.randomUUID(),
           is_active: true,
           current_draw_id: newDraw.id
-        })
-        .eq('id', drawStatus?.id);
+        });
 
       if (statusError) throw statusError;
 
+      console.log('Successfully started countdown draw:', newDraw);
       return newDraw;
     } catch (error) {
       console.error('Error starting countdown draw:', error);
@@ -119,7 +228,11 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
   };
 
   const updateDrawStatus = async (drawId: string, newStatus: LiveDraw['status'], winners?: string[]) => {
+    if (!isAdmin) throw new Error('Admin access required');
+
     try {
+      console.log('Updating draw status:', { drawId, newStatus, winners });
+
       const updateData: any = { status: newStatus };
       if (winners) {
         updateData.current_winners = winners;
@@ -131,6 +244,7 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
         .eq('id', drawId);
 
       if (error) throw error;
+      console.log('Successfully updated draw status');
     } catch (error) {
       console.error('Error updating draw status:', error);
       throw error;
@@ -138,7 +252,11 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
   };
 
   const completeDraw = async (drawId: string) => {
+    if (!isAdmin) throw new Error('Admin access required');
+
     try {
+      console.log('Completing draw:', drawId);
+
       // Update draw to completed
       await supabase
         .from('live_draws')
@@ -148,14 +266,77 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
       // Set draw status to inactive
       await supabase
         .from('draw_status')
-        .update({
+        .upsert({
+          id: drawStatus?.id || crypto.randomUUID(),
           is_active: false,
           current_draw_id: null
-        })
-        .eq('id', drawStatus?.id);
+        });
 
+      console.log('Successfully completed draw');
     } catch (error) {
       console.error('Error completing draw:', error);
+      throw error;
+    }
+  };
+
+  // Test functions for admins
+  const createTestDraw = async () => {
+    if (!isAdmin) throw new Error('Admin access required');
+
+    try {
+      console.log('Creating test draw');
+      
+      const testDraw = {
+        event_id: 'test-event',
+        status: 'countdown' as const,
+        countdown_duration: 10,
+        prizes: ['Test Prize 1', 'Test Prize 2', 'Test Prize 3'],
+        total_participants: 25,
+        current_winners: []
+      };
+
+      const { data: newDraw, error: drawError } = await supabase
+        .from('live_draws')
+        .insert(testDraw)
+        .select()
+        .single();
+
+      if (drawError) throw drawError;
+
+      await supabase
+        .from('draw_status')
+        .upsert({
+          id: drawStatus?.id || crypto.randomUUID(),
+          is_active: true,
+          current_draw_id: newDraw.id
+        });
+
+      console.log('Test draw created successfully');
+      return newDraw;
+    } catch (error) {
+      console.error('Error creating test draw:', error);
+      throw error;
+    }
+  };
+
+  const clearAllDraws = async () => {
+    if (!isAdmin) throw new Error('Admin access required');
+
+    try {
+      console.log('Clearing all draws');
+      
+      await supabase.from('live_draws').delete().neq('id', '');
+      await supabase
+        .from('draw_status')
+        .upsert({
+          id: drawStatus?.id || crypto.randomUUID(),
+          is_active: false,
+          current_draw_id: null
+        });
+
+      console.log('All draws cleared');
+    } catch (error) {
+      console.error('Error clearing draws:', error);
       throw error;
     }
   };
@@ -164,8 +345,11 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
     activeDraw,
     drawStatus,
     isConnected,
+    connectionError,
     startCountdownDraw: isAdmin ? startCountdownDraw : undefined,
     updateDrawStatus: isAdmin ? updateDrawStatus : undefined,
-    completeDraw: isAdmin ? completeDraw : undefined
+    completeDraw: isAdmin ? completeDraw : undefined,
+    createTestDraw: isAdmin ? createTestDraw : undefined,
+    clearAllDraws: isAdmin ? clearAllDraws : undefined
   };
 };
