@@ -16,34 +16,66 @@ const EnhancedWinnerReveal: React.FC<EnhancedWinnerRevealProps> = ({
   onBack 
 }) => {
   const [revealedWinners, setRevealedWinners] = useState<number[]>([]);
-  const [confetti, setConfetti] = useState<Array<{id: number, x: number, y: number, color: string, delay: number}>>([]);
+  const [confetti, setConfetti] = useState<Array<{id: number, x: number, y: number, color: string, delay: number, size: number, type: string}>>([]);
   const [currentlyRevealing, setCurrentlyRevealing] = useState(0);
+  const [celebrationIntensity, setCelebrationIntensity] = useState(0);
+  const [spotlightEffect, setSpotlightEffect] = useState<number>(-1);
+  const [fireworks, setFireworks] = useState<Array<{id: number, x: number, y: number, delay: number, color: string}>>([]);
 
   useEffect(() => {
-    // Generate confetti particles
-    const newConfetti = Array.from({ length: 50 }, (_, i) => ({
+    // Generate enhanced confetti particles
+    const confettiTypes = ['🎉', '🎊', '✨', '🌟', '💫', '🎈', '🎀', '💎'];
+    const newConfetti = Array.from({ length: 100 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      color: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'][Math.floor(Math.random() * 6)],
-      delay: Math.random() * 3
+      color: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF69B4', '#00CED1'][Math.floor(Math.random() * 8)],
+      delay: Math.random() * 4,
+      size: 0.5 + Math.random() * 1.5,
+      type: confettiTypes[Math.floor(Math.random() * confettiTypes.length)]
     }));
     setConfetti(newConfetti);
 
-    // Staggered winner reveal
+    // Generate spectacular fireworks
+    const newFireworks = Array.from({ length: 15 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 60 + 20,
+      delay: Math.random() * 3,
+      color: ['#FFD700', '#FF1493', '#00BFFF', '#32CD32', '#FF69B4', '#FFA500'][Math.floor(Math.random() * 6)]
+    }));
+    setFireworks(newFireworks);
+
+    // Enhanced staggered winner reveal with spotlight effect
     const revealInterval = setInterval(() => {
       setCurrentlyRevealing(prev => {
         if (prev < winners.length) {
           setRevealedWinners(current => [...current, prev]);
+          setSpotlightEffect(prev);
+          setCelebrationIntensity(current => current + 25);
+          
+          // Reset spotlight after 2 seconds
+          setTimeout(() => setSpotlightEffect(-1), 2000);
+          
           return prev + 1;
         }
         clearInterval(revealInterval);
         return prev;
       });
-    }, 800);
+    }, 1200);
 
     return () => clearInterval(revealInterval);
   }, [winners.length]);
+
+  // Continuous celebration animation
+  useEffect(() => {
+    if (revealedWinners.length === winners.length) {
+      const interval = setInterval(() => {
+        setCelebrationIntensity(prev => (prev + 1) % 100);
+      }, 100);
+      return () => clearInterval(interval);
+    }
+  }, [revealedWinners.length, winners.length]);
 
   const getWinnerIcon = (index: number) => {
     if (index === 0) return '🥇';
@@ -61,22 +93,77 @@ const EnhancedWinnerReveal: React.FC<EnhancedWinnerRevealProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 px-4 overflow-hidden">
-      {/* Animated Confetti Background */}
+      {/* Enhanced Confetti & Celebration Effects */}
       <div className="absolute inset-0 pointer-events-none">
         {confetti.map((particle) => (
           <div
             key={particle.id}
-            className="absolute w-2 h-2 rounded-full animate-bounce"
+            className="absolute animate-bounce opacity-80"
             style={{
               left: `${particle.x}%`,
               top: `${particle.y}%`,
-              backgroundColor: particle.color,
+              fontSize: `${particle.size}rem`,
               animationDelay: `${particle.delay}s`,
-              animationDuration: '2s'
+              animationDuration: `${1.5 + Math.random()}s`,
+              transform: `rotate(${Math.random() * 360}deg)`
             }}
-          />
+          >
+            {Math.random() > 0.5 ? particle.type : (
+              <div 
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: particle.color }}
+              />
+            )}
+          </div>
         ))}
       </div>
+
+      {/* Spectacular Fireworks */}
+      <div className="absolute inset-0 pointer-events-none">
+        {fireworks.map((firework) => (
+          <div
+            key={firework.id}
+            className="absolute"
+            style={{
+              left: `${firework.x}%`,
+              top: `${firework.y}%`,
+              animationDelay: `${firework.delay}s`
+            }}
+          >
+            <div className="relative">
+              <div 
+                className="w-4 h-4 rounded-full animate-ping opacity-75"
+                style={{ backgroundColor: firework.color }}
+              />
+              <div 
+                className="absolute inset-0 w-8 h-8 border-2 rounded-full animate-ping"
+                style={{ 
+                  borderColor: firework.color,
+                  animationDelay: '0.5s',
+                  animationDuration: '2s' 
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Spotlight Effect */}
+      {spotlightEffect >= 0 && (
+        <div className="absolute inset-0 pointer-events-none">
+          <div 
+            className="absolute bg-white/20 rounded-full animate-pulse"
+            style={{
+              width: '200px',
+              height: '200px',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              boxShadow: '0 0 100px 50px rgba(255,255,255,0.1)'
+            }}
+          />
+        </div>
+      )}
 
       {/* Celebration Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-pink-900/30 to-yellow-900/30 animate-pulse" />

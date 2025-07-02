@@ -15,36 +15,65 @@ const EnhancedCrystalBallAnimation: React.FC<EnhancedCrystalBallAnimationProps> 
   const [currentNames, setCurrentNames] = useState<string[]>([]);
   const [phase, setPhase] = useState<'building' | 'selecting' | 'finalizing'>('building');
   const [selectedWinners, setSelectedWinners] = useState<string[]>([]);
+  const [crystalIntensity, setCrystalIntensity] = useState(0);
+  const [mysticalRunes, setMysticalRunes] = useState<Array<{id: number, symbol: string, x: number, y: number, rotation: number}>>([]);
+  const [energyPulses, setEnergyPulses] = useState<Array<{id: number, delay: number}>>([]);
 
+  // Initialize mystical elements
+  useEffect(() => {
+    const runes = ['☾', '☽', '♦', '♧', '♠', '♥', '⚡', '🌙', '⭐', '💎'];
+    const newRunes = Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      symbol: runes[Math.floor(Math.random() * runes.length)],
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      rotation: Math.random() * 360
+    }));
+    setMysticalRunes(newRunes);
+
+    const newPulses = Array.from({ length: 5 }, (_, i) => ({
+      id: i,
+      delay: i * 0.2
+    }));
+    setEnergyPulses(newPulses);
+  }, []);
+
+  // Enhanced phase system with intensity tracking
   useEffect(() => {
     let nameInterval: NodeJS.Timeout;
     let phaseTimeout: NodeJS.Timeout;
+    let intensityInterval: NodeJS.Timeout;
 
-    // Phase 1: Building tension (2 seconds)
+    // Continuous intensity building
+    intensityInterval = setInterval(() => {
+      setCrystalIntensity(prev => (prev + 1) % 100);
+    }, 100);
+
+    // Phase 1: Building tension (3 seconds)
     if (phase === 'building') {
       nameInterval = setInterval(() => {
         const shuffledNames = [...participants].sort(() => 0.5 - Math.random());
         setCurrentNames(shuffledNames.slice(0, winnersCount));
-      }, 100);
+      }, 80);
 
       phaseTimeout = setTimeout(() => {
         setPhase('selecting');
-      }, 2000);
+      }, 3000);
     }
 
-    // Phase 2: Selecting winners (2 seconds)
+    // Phase 2: Selecting winners (3 seconds)
     if (phase === 'selecting') {
       nameInterval = setInterval(() => {
         const shuffledNames = [...participants].sort(() => 0.5 - Math.random());
         setCurrentNames(shuffledNames.slice(0, winnersCount));
-      }, 200); // Slower cycling
+      }, 150);
 
       phaseTimeout = setTimeout(() => {
         setPhase('finalizing');
-      }, 2000);
+      }, 3000);
     }
 
-    // Phase 3: Final selection (1 second)
+    // Phase 3: Final selection (2 seconds)
     if (phase === 'finalizing') {
       const finalWinners = [...participants].sort(() => 0.5 - Math.random()).slice(0, winnersCount);
       setSelectedWinners(finalWinners);
@@ -52,14 +81,29 @@ const EnhancedCrystalBallAnimation: React.FC<EnhancedCrystalBallAnimationProps> 
 
       phaseTimeout = setTimeout(() => {
         onAnimationComplete(finalWinners);
-      }, 1000);
+      }, 2000);
     }
 
     return () => {
       if (nameInterval) clearInterval(nameInterval);
       if (phaseTimeout) clearTimeout(phaseTimeout);
+      if (intensityInterval) clearInterval(intensityInterval);
     };
   }, [phase, winnersCount, participants, onAnimationComplete]);
+
+  // Floating runes animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMysticalRunes(prev => prev.map(rune => ({
+        ...rune,
+        x: (rune.x + Math.sin(Date.now() * 0.001 + rune.id) * 0.3) % 100,
+        y: (rune.y + Math.cos(Date.now() * 0.0008 + rune.id) * 0.2) % 100,
+        rotation: (rune.rotation + 0.5) % 360
+      })));
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const getPhaseMessage = () => {
     switch (phase) {
@@ -89,21 +133,61 @@ const EnhancedCrystalBallAnimation: React.FC<EnhancedCrystalBallAnimationProps> 
 
   return (
     <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 px-4 overflow-hidden">
-      {/* Magical Particle Background */}
+      {/* Enhanced Magical Particle System */}
       <div className="absolute inset-0">
-        {Array.from({ length: 30 }).map((_, i) => (
+        {Array.from({ length: 60 }).map((_, i) => (
           <div
             key={i}
             className="absolute animate-ping"
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${2 + Math.random() * 2}s`
+              animationDelay: `${Math.random() * 4}s`,
+              animationDuration: `${1.5 + Math.random() * 3}s`,
+              transform: `scale(${0.5 + Math.random() * 1})`
             }}
           >
-            <div className="w-1 h-1 bg-cyan-400 rounded-full opacity-60" />
+            <div className={`w-1 h-1 rounded-full opacity-70 ${
+              i % 4 === 0 ? 'bg-purple-400' : 
+              i % 4 === 1 ? 'bg-cyan-400' : 
+              i % 4 === 2 ? 'bg-yellow-400' : 'bg-pink-400'
+            }`} />
           </div>
+        ))}
+      </div>
+
+      {/* Floating Mystical Runes */}
+      <div className="absolute inset-0 pointer-events-none">
+        {mysticalRunes.map((rune) => (
+          <div
+            key={rune.id}
+            className="absolute text-2xl text-white/30 transition-all duration-1000"
+            style={{
+              left: `${rune.x}%`,
+              top: `${rune.y}%`,
+              transform: `rotate(${rune.rotation}deg)`,
+              textShadow: '0 0 20px rgba(255,255,255,0.5)',
+              filter: `hue-rotate(${crystalIntensity * 3.6}deg)`
+            }}
+          >
+            {rune.symbol}
+          </div>
+        ))}
+      </div>
+
+      {/* Energy Pulse Rings */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        {energyPulses.map((pulse) => (
+          <div
+            key={pulse.id}
+            className="absolute border-2 border-white/20 rounded-full animate-ping"
+            style={{
+              width: `${(pulse.id + 1) * 100}px`,
+              height: `${(pulse.id + 1) * 100}px`,
+              animationDelay: `${pulse.delay}s`,
+              animationDuration: '3s'
+            }}
+          />
         ))}
       </div>
 
