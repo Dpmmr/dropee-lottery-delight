@@ -22,6 +22,8 @@ export const useLiveMonitoring = () => {
           .upsert({ 
             session_id: sessionId, 
             last_seen: new Date().toISOString() 
+          }, {
+            onConflict: 'session_id'
           });
         setConnectionStatus('connected');
       } catch (error) {

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Play, Square, TestTube, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { Play, Square, TestTube, Trash2, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import { useRealTimeDraws } from '@/hooks/useRealTimeDraws';
 
 interface AdminDrawControlsProps {
@@ -23,7 +23,8 @@ const AdminDrawControls: React.FC<AdminDrawControlsProps> = ({
     startCountdownDraw, 
     completeDraw,
     createTestDraw,
-    clearAllDraws
+    clearAllDraws,
+    emergencyReset
   } = useRealTimeDraws(true);
   
   const [isLoading, setIsLoading] = useState(false);
@@ -92,6 +93,22 @@ const AdminDrawControls: React.FC<AdminDrawControlsProps> = ({
     }
   };
 
+  const handleEmergencyReset = async () => {
+    if (!emergencyReset) return;
+    if (!confirm('EMERGENCY RESET: This will clear all draw data and reset the system. Are you absolutely sure?')) return;
+    
+    setIsLoading(true);
+    try {
+      await emergencyReset();
+      alert('Emergency reset completed successfully');
+    } catch (error) {
+      console.error('Failed to perform emergency reset:', error);
+      alert('Failed to perform emergency reset: ' + error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-4 md:p-6 shadow-2xl">
       <div className="flex items-center justify-between mb-4">
@@ -128,7 +145,7 @@ const AdminDrawControls: React.FC<AdminDrawControlsProps> = ({
       )}
 
       {/* Control Buttons */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {/* Start Draw */}
         <button
           onClick={handleStartDraw}
@@ -167,6 +184,16 @@ const AdminDrawControls: React.FC<AdminDrawControlsProps> = ({
         >
           <Trash2 className="w-4 h-4" />
           <span>Clear</span>
+        </button>
+
+        {/* Emergency Reset */}
+        <button
+          onClick={handleEmergencyReset}
+          disabled={isLoading}
+          className="bg-red-700 hover:bg-red-800 disabled:bg-gray-500 px-4 py-3 rounded-lg transition-colors flex flex-col items-center space-y-1 text-sm border-2 border-red-400"
+        >
+          <AlertTriangle className="w-4 h-4" />
+          <span>Reset</span>
         </button>
       </div>
 

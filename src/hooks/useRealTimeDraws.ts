@@ -112,12 +112,26 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
   const scheduleRetry = () => {
     if (retryTimeoutRef.current) return;
     
-    console.log('Scheduling subscription retry in 5 seconds');
+    // Exponential backoff with circuit breaker
+    const retryCount = useRef(0);
+    const maxRetries = 3;
+    const baseDelay = 5000;
+    
+    if (retryCount.current >= maxRetries) {
+      console.log('Max retries reached, stopping reconnection attempts');
+      setConnectionError('Connection failed after multiple attempts');
+      return;
+    }
+    
+    const delay = baseDelay * Math.pow(2, retryCount.current);
+    console.log(`Scheduling subscription retry in ${delay/1000} seconds (attempt ${retryCount.current + 1})`);
+    
     retryTimeoutRef.current = setTimeout(() => {
       cleanup();
       retryTimeoutRef.current = null;
+      retryCount.current++;
       setupSubscriptions();
-    }, 5000);
+    }, delay);
   };
 
   const fetchInitialData = async () => {
@@ -286,8 +300,34 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
     try {
       console.log('Creating test draw');
       
+      // First, get or create a test event
+      let testEventId;
+      const { data: existingEvent } = await supabase
+        .from('events')
+        .select('id')
+        .eq('name', 'Test Event')
+        .maybeSingle();
+      
+      if (existingEvent) {
+        testEventId = existingEvent.id;
+      } else {
+        const { data: newEvent, error: eventError } = await supabase
+          .from('events')
+          .insert({
+            name: 'Test Event',
+            winners_count: 3,
+            event_date: new Date().toISOString().split('T')[0],
+            active: false
+          })
+          .select()
+          .single();
+        
+        if (eventError) throw eventError;
+        testEventId = newEvent.id;
+      }
+      
       const testDraw = {
-        event_id: 'test-event',
+        event_id: testEventId,
         status: 'countdown' as const,
         countdown_duration: 10,
         prizes: ['Test Prize 1', 'Test Prize 2', 'Test Prize 3'],
@@ -341,6 +381,28 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
     }
   };
 
+  const emergencyReset = async () => {
+    if (!isAdmin) throw new Error('Admin access required');
+
+    try {
+      console.log('Performing emergency reset');
+      
+      // Call the database function for emergency reset
+      const { error } = await supabase.rpc('emergency_reset_draws');
+      if (error) throw error;
+      
+      // Reset local state
+      setActiveDraw(null);
+      setDrawStatus(null);
+      setConnectionError(null);
+      
+      console.log('Emergency reset completed');
+    } catch (error) {
+      console.error('Error during emergency reset:', error);
+      throw error;
+    }
+  };
+
   return {
     activeDraw,
     drawStatus,
@@ -350,6 +412,7 @@ export const useRealTimeDraws = (isAdmin: boolean) => {
     updateDrawStatus: isAdmin ? updateDrawStatus : undefined,
     completeDraw: isAdmin ? completeDraw : undefined,
     createTestDraw: isAdmin ? createTestDraw : undefined,
-    clearAllDraws: isAdmin ? clearAllDraws : undefined
+    clearAllDraws: isAdmin ? clearAllDraws : undefined,
+    emergencyReset: isAdmin ? emergencyReset : undefined
   };
 };
