@@ -101,7 +101,7 @@ const LotteryFooter: React.FC = () => {
                 <span className="text-xl md:text-2xl">🕐</span>
                 <div>
                   <p className="text-cyan-200 text-xs md:text-sm">Hours</p>
-                  <p className="text-white font-semibold text-sm md:text-base">9:00 AM - 9:00 PM</p>
+                  <p className="text-white font-semibold text-sm md:text-base">MON to SAT 9AM to 5PM</p>
                 </div>
               </div>
             </div>

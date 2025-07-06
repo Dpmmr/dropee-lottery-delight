@@ -23,10 +23,10 @@ const ContactPage: React.FC<ContactPageProps> = ({ externalLinks }) => {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900 text-white">
       <div className="container mx-auto px-4 py-8 md:py-16">
         <div className="text-center mb-8 md:mb-12">
-          <h2 className="text-2xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
+          <h2 className="text-xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
             📞 Contact Us
           </h2>
-          <p className="text-lg md:text-xl text-cyan-300">
+          <p className="text-base md:text-xl text-cyan-300">
             Get in touch with our team for support, inquiries, or lottery information
           </p>
         </div>
@@ -101,7 +101,7 @@ const ContactPage: React.FC<ContactPageProps> = ({ externalLinks }) => {
                 <span className="text-2xl">🕐</span>
                 <div>
                   <h4 className="font-bold text-lg">Business Hours</h4>
-                  <p className="text-cyan-200">9:00 AM - 9:00 PM</p>
+                  <p className="text-cyan-200">MON to SAT 9AM to 5PM</p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
