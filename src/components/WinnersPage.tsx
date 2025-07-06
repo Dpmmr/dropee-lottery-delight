@@ -11,7 +11,7 @@ const WinnersPage: React.FC<WinnersPageProps> = ({ allWinners }) => {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900 text-white">
       <div className="container mx-auto px-4 md:px-6 py-6 md:py-8 max-w-6xl">
         <div className="text-center mb-8 md:mb-12 px-2">
-          <h2 className="text-3xl md:text-5xl font-bold mb-3 md:mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent leading-tight">
+          <h2 className="text-xl md:text-5xl font-bold mb-3 md:mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent leading-tight">
             🏆 All Time Winners
           </h2>
           <p className="text-sm md:text-lg text-cyan-300">Celebrating our amazing winners!</p>

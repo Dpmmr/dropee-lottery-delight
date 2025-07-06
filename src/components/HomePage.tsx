@@ -38,7 +38,7 @@ const HomePage: React.FC<HomePageProps> = ({
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-8 max-w-7xl">
         {/* Hero Section */}
         <div className="text-center mb-6 md:mb-12 px-2">
-          <h2 className="text-2xl md:text-6xl font-bold mb-2 md:mb-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent leading-tight">
+          <h2 className="text-xl md:text-6xl font-bold mb-2 md:mb-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent leading-tight">
             🎉 DROPEE LOTTERY DRAW 🎉
           </h2>
           <p className="text-sm md:text-xl text-cyan-300">
@@ -49,7 +49,7 @@ const HomePage: React.FC<HomePageProps> = ({
         {/* Active Event Banner */}
         {activeEvent && (
           <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl md:rounded-3xl p-4 md:p-8 mb-6 md:mb-8 shadow-2xl mx-2 md:mx-0">
-            <h3 className="text-xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-white">🚀 UPCOMING DRAW 🚀</h3>
+            <h3 className="text-lg md:text-4xl font-bold text-center mb-3 md:mb-4 text-white">🚀 UPCOMING DRAW 🚀</h3>
             <div className="text-center space-y-2 md:space-y-3">
               <h4 className="text-lg md:text-2xl font-bold text-yellow-300">{activeEvent.name}</h4>
               <p className="text-sm md:text-lg text-cyan-200">📅 Event Date: {new Date(activeEvent.event_date).toLocaleDateString()}</p>

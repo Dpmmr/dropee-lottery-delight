@@ -23,7 +23,7 @@ const ContactPage: React.FC<ContactPageProps> = ({ externalLinks }) => {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-cyan-900 text-white">
       <div className="container mx-auto px-4 py-8 md:py-16">
         <div className="text-center mb-8 md:mb-12">
-          <h2 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
+          <h2 className="text-2xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
             📞 Contact Us
           </h2>
           <p className="text-lg md:text-xl text-cyan-300">
@@ -36,10 +36,10 @@ const ContactPage: React.FC<ContactPageProps> = ({ externalLinks }) => {
           <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-3xl p-6 md:p-8 shadow-2xl transform hover:scale-105 transition-all duration-300">
             <div className="text-center">
               <div className="text-4xl md:text-6xl mb-4">📱</div>
-              <h3 className="text-2xl md:text-3xl font-bold mb-4">Call Us Direct</h3>
+              <h3 className="text-xl md:text-3xl font-bold mb-4">Call Us Direct</h3>
               <p className="text-lg md:text-xl text-green-100 mb-6">Speak with our support team</p>
               <div className="bg-white/20 rounded-xl p-4 mb-6">
-                <p className="text-xl md:text-2xl font-bold text-yellow-300">{phoneNumber}</p>
+                <p className="text-lg md:text-2xl font-bold text-yellow-300">{phoneNumber}</p>
               </div>
               <button
                 onClick={handleCall}
@@ -54,10 +54,10 @@ const ContactPage: React.FC<ContactPageProps> = ({ externalLinks }) => {
           <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-3xl p-6 md:p-8 shadow-2xl transform hover:scale-105 transition-all duration-300">
             <div className="text-center">
               <div className="text-4xl md:text-6xl mb-4">💬</div>
-              <h3 className="text-2xl md:text-3xl font-bold mb-4">WhatsApp Chat</h3>
+              <h3 className="text-xl md:text-3xl font-bold mb-4">WhatsApp Chat</h3>
               <p className="text-lg md:text-xl text-green-100 mb-6">Quick and easy messaging</p>
               <div className="bg-white/20 rounded-xl p-4 mb-6">
-                <p className="text-xl md:text-2xl font-bold text-yellow-300">{phoneNumber}</p>
+                <p className="text-lg md:text-2xl font-bold text-yellow-300">{phoneNumber}</p>
               </div>
               <button
                 onClick={handleWhatsApp}
